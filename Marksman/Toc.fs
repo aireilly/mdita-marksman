@@ -50,9 +50,7 @@ module TableOfContents =
 
     let logger = LogProvider.getLoggerByName "TocAgent"
 
-    let mk (includeLevels: int array) (index: Marksman.Index.Index) : TableOfContents option =
-        let allowedLevels = includeLevels |> Set.ofArray
-
+    let mk (includeLevels: array<int>) (index: Marksman.Index.Index) : option<TableOfContents> =
         let headings =
             index.headings
             |> Array.map (fun x -> x.data)
