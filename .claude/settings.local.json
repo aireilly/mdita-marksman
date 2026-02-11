@@ -10,7 +10,8 @@
       "Bash(dotnet --version:*)",
       "Bash(dotnet --list-runtimes:*)",
       "Bash(dotnet test:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(gh api:*)"
     ]
   }
 }
