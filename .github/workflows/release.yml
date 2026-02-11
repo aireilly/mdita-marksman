@@ -1,107 +1,90 @@
 name: Release
+
 on:
-  workflow_dispatch:
-    inputs:
-      name:
-        description: "Release name"
-        required: true
+  push:
+    tags:
+      - "v*"
+
 jobs:
   build:
-    name: Build the release for ${{ matrix.os.runner }} (${{ matrix.os.exe }})
-    runs-on: ${{ matrix.os.runner }}
     strategy:
       matrix:
-        os:
-          - runner: windows-latest
-            exe: marksman.exe
-            task: publishTo
+        include:
           - runner: ubuntu-latest
-            exe: marksman-linux-x64
-            task: publishTo RID=linux-x64
+            rid: linux-x64
+            binary: mdita-marksman-linux-x64
           - runner: ubuntu-latest
-            exe: marksman-linux-musl-x64
-            task: publishTo RID=linux-musl-x64
-          - runner: ubuntu-latest
-            exe: marksman-linux-arm64
-            task: publishTo RID=linux-arm64
-          - runner: ubuntu-latest
-            exe: marksman-linux-musl-arm64
-            task: publishTo RID=linux-musl-arm64
+            rid: linux-arm64
+            binary: mdita-marksman-linux-arm64
           - runner: macos-latest
-            exe: marksman
-            task: macosUniversalBinary
+            rid: osx-arm64
+            binary: mdita-marksman-macos-arm64
+          - runner: macos-latest
+            rid: osx-x64
+            binary: mdita-marksman-macos-x64
+          - runner: windows-latest
+            rid: win-x64
+            binary: mdita-marksman-win-x64.exe
+
+    runs-on: ${{ matrix.runner }}
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
-      - name: Create release tag
-        run: |
-          git tag ${{ github.event.inputs.name }}
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v3
+
+      - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
-      - name: Install dependencies
-        run: dotnet restore
-      - name: Build the release binary
-        run: make ${{ matrix.os.task }} DEST=out
-      - name: Rename linux binary
-        shell: python
-        run: |
-          import os
-          if ("${{ matrix.os.exe }}" != "marksman" and
-             "${{ matrix.os.exe }}" != "marksman.exe"
-          ):
-            os.rename("out/marksman", "out/${{ matrix.os.exe }}")
-      - name: Upload the binary
+          dotnet-version: "10.0.x"
+
+      - name: Set version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Publish
+        run: >
+          dotnet publish Marksman/Marksman.fsproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:TrimMode=partial
+          -p:DebugType=embedded
+          -p:EnableCompressionInSingleFile=true
+          -p:UseAppHost=true
+          -p:VersionString=${{ env.VERSION }}
+
+      - name: Rename binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: mv Marksman/bin/Release/net10.0/${{ matrix.rid }}/publish/mdita-marksman ${{ matrix.binary }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: mv Marksman/bin/Release/net10.0/${{ matrix.rid }}/publish/mdita-marksman.exe ${{ matrix.binary }}
+        shell: bash
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os.exe }}
-          path: out/${{ matrix.os.exe }}
-          if-no-files-found: error
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
   release:
-    name: Create the release for ${{ matrix.os.runner }} (${{ matrix.os.release_exe }})
-    runs-on: ${{ matrix.os.runner }}
     needs: build
-    strategy:
-      matrix:
-        os:
-          - runner: windows-latest
-            exe: marksman.exe
-            release_exe: marksman.exe
-          - runner: ubuntu-latest
-            exe: marksman-linux-x64
-            release_exe: marksman-linux-x64
-          - runner: ubuntu-latest
-            exe: marksman-linux-musl-x64
-            release_exe: marksman-linux-musl-x64
-          - runner: ubuntu-latest
-            exe: marksman-linux-arm64
-            release_exe: marksman-linux-arm64
-          - runner: ubuntu-latest
-            exe: marksman-linux-musl-arm64
-            release_exe: marksman-linux-musl-arm64
-          - runner: macos-latest
-            exe: marksman
-            release_exe: marksman-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - id: download
-        name: Download the release binary
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.os.exe }}
-      - name: Rename the binary
-        shell: python
-        run: |
-          import os
-          os.rename("${{ matrix.os.exe }}", "${{ matrix.os.release_exe }}")
-      - name: Create a GH release
-        uses: softprops/action-gh-release@v1
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os.release_exe }}
-          name: ${{ github.event.inputs.name }}
-          tag_name: ${{ github.event.inputs.name }}
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          files: artifacts/*

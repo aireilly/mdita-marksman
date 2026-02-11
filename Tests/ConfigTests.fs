@@ -235,7 +235,7 @@ let testDefault () =
     let content =
         Assembly
             .GetExecutingAssembly()
-            .GetManifestResourceStream("default.marksman.toml")
+            .GetManifestResourceStream("default.mdita-marksman.toml")
 
     let content = using (new StreamReader(content)) (fun f -> f.ReadToEnd())
     let parsed = Config.tryParse content

@@ -43,7 +43,6 @@ type Dest =
     | Doc of FileLink
     | Heading of DocLink * Node<Heading>
     | LinkDef of Doc * Node<MdLinkDef>
-    | Tag of Doc * Node<Tag>
 
 module Dest =
     val doc: Dest -> Doc

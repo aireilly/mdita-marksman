@@ -246,11 +246,6 @@ module MdLinkDef =
     }
 
 
-type Tag = { name: TextNode }
-
-module Tag =
-    let fmt (t: Tag) = $"name={t.name.text}; range={t.name.range}"
-
 type YamlMetadata = {
     author: option<string>
     source: option<string>
@@ -370,7 +365,6 @@ type Element =
     | WL of Node<WikiLink>
     | ML of Node<MdLink>
     | MLD of Node<MdLinkDef>
-    | T of Node<Tag>
     | YML of TextNode
 
     member this.Range =
@@ -379,7 +373,6 @@ type Element =
         | WL n -> n.range
         | ML n -> n.range
         | MLD n -> n.range
-        | T n -> n.range
         | YML n -> n.range
 
 and Heading = {
@@ -396,7 +389,6 @@ let rec private fmtElement =
     | WL x -> fmtWikiLink x
     | ML l -> fmtMdLink l
     | MLD r -> fmtMdLinkDef r
-    | T t -> fmtTag t
     | YML y -> Node.fmtText y
 
 and private fmtHeading node =
@@ -424,8 +416,6 @@ and private fmtMdLinkDef node =
     let first = $"MLD: {node.text} @ {node.range}"
     let rest = (indentFmt MdLinkDef.fmt) node.data
     String.Join(Environment.NewLine, [ first; rest ])
-
-and private fmtTag node = $"T: {Tag.fmt node.data} @ {node.range}"
 
 module Heading =
     let fmt = fmtHeading
@@ -465,7 +455,6 @@ module Element =
         | WL n -> n.text
         | ML n -> n.text
         | MLD n -> n.text
-        | T n -> n.text
         | YML n -> n.text
 
     let asHeading =
@@ -486,8 +475,7 @@ module Element =
     let isDecl =
         function
         | WL _
-        | ML _
-        | T _ -> false
+        | ML _ -> false
         | YML _
         | H _
         | MLD _ -> true
@@ -498,7 +486,6 @@ module Element =
         | ML _ -> true
         | H _
         | MLD _
-        | T _
         | YML _ -> false
 
     let isTitle el =
@@ -536,7 +523,6 @@ module Element =
             | MdLink.RC label -> Ast.Element.MR(Ast.Collapsed(label.text)) |> Some
             | MdLink.RS label -> Ast.Element.MR(Ast.Shortcut(label.text)) |> Some
         | MLD { data = mdDef } -> MdLinkDef.toAbstract mdDef |> Ast.Element.MLD |> Some
-        | T { data = tag } -> Ast.Element.T(Ast.Tag tag.name.text) |> Some
         | YML _ -> None
 
 type Cst = { elements: Element[]; childMap: Map<Element, Element[]> }

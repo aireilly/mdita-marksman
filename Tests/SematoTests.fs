@@ -19,16 +19,15 @@ let testEncoding () =
 Start with [[a-wiki-link]]. Then a [ref-link].
 [[wiki-at-sol]]
 <blank>
-End with [[wiki-link-no-eol]] and #tag."""
+End with [[wiki-link-no-eol]]."""
 
     let doc =
         Doc.mk Config.ParserSettings.Default docPath None (Text.mkText content)
 
     let data = Token.ofIndexEncoded (Doc.index doc)
-    Assert.Equal(5 * 5, data.Length)
+    Assert.Equal(4 * 5, data.Length)
 
     Assert.Equal<uint32>([| 1u; 13u; 11u; 0u; 0u |], nthToken data 0)
     Assert.Equal<uint32>([| 0u; 23u; 8u; 1u; 0u |], nthToken data 1)
     Assert.Equal<uint32>([| 1u; 2u; 11u; 0u; 0u |], nthToken data 2)
     Assert.Equal<uint32>([| 2u; 11u; 16u; 0u; 0u |], nthToken data 3)
-    Assert.Equal<uint32>([| 0u; 23u; 4u; 2u; 0u |], nthToken data 4)

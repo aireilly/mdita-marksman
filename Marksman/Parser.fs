@@ -39,41 +39,6 @@ module Markdown =
         member val Title = Option.map fst title
         member val TitleSpan = Option.map snd title
 
-    type TagInline(text: string) =
-        inherit LeafInline()
-
-        member val Text = text
-
-
-    type TagsParser() as this =
-        inherit InlineParser()
-
-        do this.OpeningCharacters <- [| '#' |]
-
-        override this.Match(processor, slice) =
-            // tags should not be placed inside words, URLs etc.
-            if (slice.PeekCharExtra -1).IsAlphaNumeric() then
-                false
-            else
-                let start = slice.Start
-                let offsetStart = processor.GetSourcePosition(slice.Start)
-                let shouldAccept (c: char) = c.IsAlphaNumeric() || c = '-' || c = '_' || c = '/'
-
-                while (shouldAccept (slice.PeekChar())) do
-                    slice.NextChar() |> ignore
-
-                let end_ = slice.Start
-                let offsetEnd = offsetStart + (end_ - start)
-
-                if end_ > start then
-                    let text = slice.Text.Substring(start, end_ - start + 1)
-                    let tag = TagInline(text)
-                    tag.Span <- SourceSpan(offsetStart, offsetEnd)
-                    processor.Inline <- tag
-                    true
-                else
-                    false
-
     /// <summary>Match links of the form `[[doc#heading|title]]`, where at least one of `doc` and `#heading` must be present (`|title` may be omitted).</summary>
     type WikiLinkParser() as this =
         inherit InlineParser()
@@ -201,7 +166,6 @@ module Markdown =
 
         pipelineBuilder.InlineParsers.Insert(0, MarkdigPatches.PatchedLinkInlineParser())
         pipelineBuilder.InlineParsers.Insert(0, WikiLinkParser())
-        pipelineBuilder.InlineParsers.Add(TagsParser())
         pipelineBuilder.Build()
 
     let sourceSpanToRange (text: Text) (span: SourceSpan) : Range =
@@ -396,22 +360,6 @@ module Markdown =
                 let def = MdLinkDef.mk label url title |> Node.mk defText defRange
 
                 elements.Add(MLD def)
-
-                ()
-            | :? TagInline as tag ->
-                let tagText = tag.Text
-                let tagRange = sourceSpanToRange text tag.Span
-
-                let nameText, nameRange =
-                    if tagText.StartsWith('#') then
-                        tagText.Substring(1),
-                        { Start = tagRange.Start.NextChar(1); End = tagRange.End }
-                    else
-                        tagText, tagRange
-
-                let tag = { name = Node.mkText nameText nameRange }
-                let tag = Node.mk tagText tagRange tag
-                elements.Add(T tag)
 
                 ()
             | _ -> ()

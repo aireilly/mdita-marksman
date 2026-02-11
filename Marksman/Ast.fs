@@ -77,9 +77,6 @@ type MdLinkDef = {
     member this.Label = LinkLabel.ofString this.label
     member this.CompactFormat() = $"[{this.label}]: {UrlEncoded.raw this.url}"
 
-[<Struct>]
-type Tag = Tag of string
-
 [<RequireQualifiedAccess>]
 type Element =
     | H of Heading
@@ -87,7 +84,6 @@ type Element =
     | ML of MdLink
     | MR of MdRef
     | MLD of MdLinkDef
-    | T of Tag
 
     member this.CompactFormat() =
         match this with
@@ -96,7 +92,6 @@ type Element =
         | Element.ML mdLink -> mdLink.CompactFormat()
         | Element.MR mdRef -> mdRef.CompactFormat()
         | Element.MLD mdLinkDef -> mdLinkDef.CompactFormat()
-        | Element.T(Tag tag) -> $"#{tag}"
 
 module Element =
     let asHeading =
@@ -169,6 +164,5 @@ module Element =
         // The rest
         | Element.MR mdRef -> Some(Syms.Sym.Ref(IntraRef(IntraLinkDef mdRef.DestLabel)))
         | Element.MLD mdLinkDef -> Some(Syms.Sym.Def(LinkDef(mdLinkDef.Label)))
-        | Element.T(Tag tag) -> Some(Syms.Sym.Tag(Syms.Tag tag))
 
 type Ast = { elements: Element[] }

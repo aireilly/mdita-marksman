@@ -12,24 +12,6 @@ open Marksman.Workspace
 
 let headingToSymbolName (h: Node<Heading>) : string = $"H{h.data.level}: {Heading.name h.data}"
 
-let tagToSymbolName (t: Node<Tag>) : string = $"Tag: {t.data.name.text}"
-
-let tagToSymbolInfo (docUri: DocId) (t: Node<Tag>) : SymbolInformation =
-    let name = tagToSymbolName t
-    let kind = SymbolKind.String
-    let location = { Uri = docUri.Uri; Range = t.range }
-
-    let sym = {
-        Name = name
-        Kind = kind
-        Location = location
-        ContainerName = None
-        Tags = None
-        Deprecated = None
-    }
-
-    sym
-
 let headingToSymbolInfo (docUri: DocId) (h: Node<Heading>) : SymbolInformation =
     let name = headingToSymbolName h
     let kind = SymbolKind.String
@@ -46,22 +28,6 @@ let headingToSymbolInfo (docUri: DocId) (h: Node<Heading>) : SymbolInformation =
 
     sym
 
-let rec tagToDocumentSymbol (t: Node<Tag>) : DocumentSymbol =
-    let name = t.data.name.text
-    let kind = SymbolKind.String
-    let range = t.range
-
-    {
-        Name = name
-        Detail = None
-        Kind = kind
-        Range = range
-        SelectionRange = range
-        Children = None
-        Tags = None
-        Deprecated = None
-    }
-
 let rec headingToDocumentSymbol (isEmacs: bool) (cst: Cst) (h: Node<Heading>) : DocumentSymbol =
     let name = Heading.name h.data
     let kind = SymbolKind.String
@@ -71,7 +37,6 @@ let rec headingToDocumentSymbol (isEmacs: bool) (cst: Cst) (h: Node<Heading>) : 
     let toDocumentSymbol (e: Element) : option<DocumentSymbol> =
         match e with
         | H h -> Some(headingToDocumentSymbol isEmacs cst h)
-        | T t -> Some(tagToDocumentSymbol t)
         | _ -> None
 
     let children =
@@ -125,17 +90,10 @@ let docSymbols
         |> Array.ofSeq
         |> Second
     else
-        let allHeadings =
-            Doc.index >> Index.headings <| doc
-            |> Seq.map (headingToSymbolInfo (Doc.id doc))
-            |> Array.ofSeq
-
-        let allTags =
-            Doc.index >> Index.tags <| doc
-            |> Seq.map (tagToSymbolInfo (Doc.id doc))
-            |> Array.ofSeq
-
-        Array.append allHeadings allTags |> First
+        Doc.index >> Index.headings <| doc
+        |> Seq.map (headingToSymbolInfo (Doc.id doc))
+        |> Array.ofSeq
+        |> First
 
 let workspaceSymbols (query: string) (ws: Workspace) : array<SymbolInformation> =
     seq {
@@ -147,12 +105,6 @@ let workspaceSymbols (query: string) (ws: Workspace) : array<SymbolInformation> 
                     |> Seq.filter (headingToSymbolName >> query.IsSubSequenceOf)
                     |> Seq.map (headingToSymbolInfo (Doc.id doc))
 
-                let matchingTagSymbols =
-                    Doc.index doc
-                    |> Index.tags
-                    |> Seq.filter (tagToSymbolName >> query.IsSubSequenceOf)
-                    |> Seq.map (tagToSymbolInfo (Doc.id doc))
-
-                yield! Seq.append matchingHeadingSymbols matchingTagSymbols
+                yield! matchingHeadingSymbols
     }
     |> Array.ofSeq

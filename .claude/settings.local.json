@@ -9,7 +9,8 @@
       "Bash(export PATH=\"$DOTNET_ROOT:$PATH\")",
       "Bash(dotnet --version:*)",
       "Bash(dotnet --list-runtimes:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(python3:*)"
     ]
   }
 }

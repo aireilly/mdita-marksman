@@ -153,7 +153,6 @@ let destToHuman (ref: Dest) : string =
     | Dest.Heading(docLink, { data = heading }) ->
         $"heading {Heading.name heading} in the document {Doc.name (DocLink.doc docLink)}"
     | Dest.LinkDef(_, { data = ld }) -> $"link definition {MdLinkDef.name ld}"
-    | Dest.Tag(doc, { data = tag }) -> $"tag {tag.name} in the document {Doc.name doc}"
 
 let docToHuman (name: string) : string = $"document '{name}'"
 
@@ -174,7 +173,6 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
             | ML _ -> Lsp.DiagnosticSeverity.Warning
             | H _
             | MLD _
-            | T _
             | YML _ -> Lsp.DiagnosticSeverity.Information
 
         let mkRelated dest : DiagnosticRelatedInformation =
@@ -189,7 +187,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
             Severity = Some severity
             Code = Some(code diag)
             CodeDescription = None
-            Source = Some "Marksman"
+            Source = Some "MDITA Marksman"
             Message = $"Ambiguous link to {refToHuman ref}"
             RelatedInformation = Some related
             Tags = None
@@ -202,7 +200,6 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
             | ML _ -> Lsp.DiagnosticSeverity.Warning
             | H _
             | MLD _
-            | T _
             | YML _ -> Lsp.DiagnosticSeverity.Information
 
         let msg = $"Link to non-existent {refToHuman ref}"
@@ -212,7 +209,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
             Severity = Some severity
             Code = Some(code diag)
             CodeDescription = None
-            Source = Some "Marksman"
+            Source = Some "MDITA Marksman"
             Message = msg
             RelatedInformation = None
             Tags = None
@@ -224,7 +221,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Severity = Some Lsp.DiagnosticSeverity.Warning
         Code = Some(code diag)
         CodeDescription = None
-        Source = Some "Marksman"
+        Source = Some "MDITA Marksman"
         Message =
             "Non-breaking whitespace used instead of regular whitespace. This line won't be interpreted as a heading"
         RelatedInformation = None
@@ -236,7 +233,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Severity = Some Lsp.DiagnosticSeverity.Warning
         Code = Some(code diag)
         CodeDescription = None
-        Source = Some "Marksman"
+        Source = Some "MDITA Marksman"
         Message = "MDITA: Missing YAML front matter. Add a front matter block with '---' delimiters."
         RelatedInformation = None
         Tags = None
@@ -247,7 +244,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Severity = Some Lsp.DiagnosticSeverity.Information
         Code = Some(code diag)
         CodeDescription = None
-        Source = Some "Marksman"
+        Source = Some "MDITA Marksman"
         Message = "MDITA: Missing short description. Add a paragraph immediately after the title heading."
         RelatedInformation = None
         Tags = None
@@ -258,7 +255,7 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Severity = Some Lsp.DiagnosticSeverity.Warning
         Code = Some(code diag)
         CodeDescription = None
-        Source = Some "Marksman"
+        Source = Some "MDITA Marksman"
         Message =
             $"MDITA: Heading level {currentLevel} skips levels. Expected at most level {expectedMaxLevel}."
         RelatedInformation = None

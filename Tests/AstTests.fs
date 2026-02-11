@@ -24,8 +24,6 @@ This is [inline-link](url "title")
 
 ## Sub 2
 
-This is a #tag
-
 [collapsedRef]: DefURL
 """
 
@@ -40,7 +38,6 @@ let testAstShape () =
         "## Sub 1 {sub-1}"
         "[inline-link](url)"
         "## Sub 2 {sub-2}"
-        "#tag"
         "[collapsedRef]: DefURL"
     ]
 

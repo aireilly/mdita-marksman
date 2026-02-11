@@ -15,7 +15,6 @@ type Index = {
     wikiLinks: array<Node<WikiLink>>
     mdLinks: array<Node<MdLink>>
     linkDefs: array<Node<MdLinkDef>>
-    tags: array<Node<Tag>>
     yamlFrontMatter: option<TextNode>
     yamlMetadata: option<YamlMetadata>
     shortDescription: option<TextNode>
@@ -29,7 +28,6 @@ module Index =
         let headings = ResizeArray()
         let mdLinks = ResizeArray()
         let linkDefs = ResizeArray()
-        let tags = ResizeArray()
         let mutable yaml = None
 
         for el in cels do
@@ -49,7 +47,6 @@ module Index =
             | WL wl -> wikiLinks.Add(wl)
             | ML ml -> mdLinks.Add(ml)
             | MLD linkDef -> linkDefs.Add(linkDef)
-            | T t -> tags.Add(t)
             | YML yml -> yaml <- Some yml
 
         let headingsBySlug =
@@ -64,7 +61,6 @@ module Index =
         let mdLinks = mdLinks.ToArray()
         let linkDefs = linkDefs.ToArray()
         let headings = headings.ToArray()
-        let tags = tags.ToArray()
 
         let yamlMetadata =
             yaml
@@ -77,7 +73,6 @@ module Index =
             wikiLinks = wikiLinks
             mdLinks = mdLinks
             linkDefs = linkDefs
-            tags = tags
             yamlFrontMatter = yaml
             yamlMetadata = yamlMetadata
             shortDescription = shortDesc
@@ -95,12 +90,6 @@ module Index =
         Seq.append (wikiLinks index |> Seq.map WL) (mdLinks index |> Seq.map ML)
 
     let linkDefs index = index.linkDefs
-
-    let tags index = index.tags
-
-    let filterTagsByName name index =
-        index.tags
-        |> Array.filter (fun { data = tag } -> tag.name.text = name)
 
     let tryFindLinkDef (label: LinkLabel) index =
         index.linkDefs

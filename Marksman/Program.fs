@@ -58,7 +58,7 @@ let startLSP (args: int * bool) : int =
         System.Runtime.InteropServices.RuntimeInformation.OSArchitecture
 
     logger.info (
-        Log.setMessage "Starting Marksman LSP server"
+        Log.setMessage "Starting MDITA Marksman LSP server"
         >> Log.addContext "version" version
         >> Log.addContext "os" os
         >> Log.addContext "arch" arch
@@ -75,7 +75,7 @@ let startLSP (args: int * bool) : int =
             (fun client -> new MS.MarksmanServer(client))
             Server.defaultRpc
 
-    logger.trace (Log.setMessage "Stopped Marksman LSP server")
+    logger.trace (Log.setMessage "Stopped MDITA Marksman LSP server")
 
     int result
 
@@ -100,7 +100,7 @@ let main args =
         }
 
     rootCommand args {
-        description "Marksman is a language server for Markdown"
+        description "MDITA Marksman is a language server for MDITA (Markdown DITA)"
         setAction (fun () -> startLSP (2, false))
         addCommand lspCommand
     }

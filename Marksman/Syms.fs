@@ -63,20 +63,6 @@ module Ref =
         | IntraRef(IntraSection section) -> Some section
         | _ -> None
 
-[<Struct>]
-[<StructuredFormatDisplay("{AsString}")>]
-type Tag =
-    | Tag of string
-
-
-    member this.AsString = this.ToString()
-
-    member this.Name =
-        let (Tag name) = this
-        name
-
-    override this.ToString() = $"#{this.Name}"
-
 [<StructuredFormatDisplay("{AsString}")>]
 type Def =
     | Doc
@@ -132,13 +118,11 @@ module Def =
 type Sym =
     | Def of Def
     | Ref of Ref
-    | Tag of Tag
 
     override this.ToString() =
         match this with
         | Ref link -> link.ToString()
         | Def def -> def.ToString()
-        | Tag tag -> tag.ToString()
 
     member this.AsString = this.ToString()
 
@@ -191,20 +175,12 @@ module Sym =
     let asRef =
         function
         | Sym.Ref ref -> Some ref
-        | Sym.Def _
-        | Sym.Tag _ -> None
+        | Sym.Def _ -> None
 
     let asDef =
         function
         | Sym.Def def -> Some def
-        | Sym.Ref _
-        | Sym.Tag _ -> None
-
-    let asTag =
-        function
-        | Sym.Tag tag -> Some tag
-        | Sym.Ref _
-        | Sym.Def _ -> None
+        | Sym.Ref _ -> None
 
     let isDoc sym = asDef sym |> Option.exists Def.isDoc
 

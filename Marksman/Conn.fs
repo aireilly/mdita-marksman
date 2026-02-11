@@ -17,7 +17,6 @@ type Oracle = {
 module ScopedSym =
     let asRef (scope, sym) = Sym.asRef sym |> Option.map (fun link -> scope, link)
     let asDef (scope, sym) = Sym.asDef sym |> Option.map (fun def -> scope, def)
-    let asTag (scope, sym) = Sym.asTag sym |> Option.map (fun tag -> scope, tag)
 
 type UnresolvedScope =
     | FullyUnknown
@@ -37,7 +36,6 @@ type Unresolved =
 type ConnDifference = {
     refsDifference: MMapDifference<Scope, Ref>
     defsDifference: MMapDifference<Scope, Def>
-    tagsDifference: MMapDifference<Scope, Tag>
     resolvedDifference: GraphDifference<ScopedSym>
     unresolvedDifference: GraphDifference<Unresolved>
     refDepsDifference: GraphDifference<Scope * CrossRef>
@@ -46,7 +44,6 @@ type ConnDifference = {
     member this.IsEmpty() =
         this.refsDifference.IsEmpty()
         && this.defsDifference.IsEmpty()
-        && this.tagsDifference.IsEmpty()
         && this.resolvedDifference.IsEmpty()
         && this.unresolvedDifference.IsEmpty()
         && this.refDepsDifference.IsEmpty()
@@ -61,10 +58,6 @@ type ConnDifference = {
                 if this.defsDifference.IsEmpty() |> not then
                     yield "Defs difference:"
                     yield Indented(2, this.defsDifference.CompactFormat()).ToString()
-
-                if this.tagsDifference.IsEmpty() |> not then
-                    yield "Tags difference:"
-                    yield Indented(2, this.tagsDifference.CompactFormat()).ToString()
 
                 if this.resolvedDifference.IsEmpty() |> not then
                     yield "Resolved difference:"
@@ -122,7 +115,6 @@ type Defs = {
 type Conn = {
     refs: MMap<Scope, Ref>
     defs: Defs
-    tags: MMap<Scope, Tag>
     resolved: Graph<ScopedSym>
     unresolved: Graph<Unresolved>
     refDeps: Graph<Scope * CrossRef>
@@ -191,15 +183,6 @@ type Conn = {
                         for def in defs do
                             yield Indented(4, def).ToString()
 
-                if this.tags |> MMap.isEmpty |> not then
-                    yield "Tags:"
-
-                    for scope, tags in MMap.toSetSeq this.tags do
-                        yield $"  {scope}:"
-
-                        for tag in tags do
-                            yield Indented(4, tag).ToString()
-
                 yield "Resolved:"
                 yield Indented(2, this.ResolvedCompactFormat()).ToString()
 
@@ -224,7 +207,6 @@ module Conn =
     let empty = {
         refs = MMap.empty
         defs = Defs.Empty
-        tags = MMap.empty
         resolved = Graph.empty
         unresolved = Graph.empty
         refDeps = Graph.empty
@@ -234,7 +216,6 @@ module Conn =
     let isSameStructure c1 c2 =
         c1.refs = c2.refs
         && c1.defs.byScope = c2.defs.byScope
-        && c1.tags = c2.tags
         && c1.resolved = c2.resolved
         && c1.unresolved = c2.unresolved
 
@@ -261,7 +242,6 @@ module Conn =
         let mutable {
                         refs = refs
                         defs = defs
-                        tags = tags
                         resolved = resolved
                         unresolved = unresolved
                         refDeps = refDeps
@@ -275,17 +255,6 @@ module Conn =
             function
             | Unresolved.Ref(scope, ref) -> toResolveSet <- Set.add (scope, ref) toResolveSet
             | Unresolved.Scope _ -> ()
-
-        // Start by removing tags as they have little effect on the overall structure
-        // of the graph
-        let removedTags = removed |> Set.toSeq |> Seq.choose ScopedSym.asTag
-
-        for scope, tag in removedTags do
-            let scopedSym = (scope, Syms.Sym.Tag tag)
-            lastTouched <- Set.add scopedSym lastTouched
-
-            tags <- MMap.removeValue scope tag tags
-            resolved <- Graph.removeVertex scopedSym resolved
 
         // Remove all refs
         let removedRefs = removed |> Set.toSeq |> Seq.choose ScopedSym.asRef
@@ -337,8 +306,7 @@ module Conn =
                         |> Set.iter (fun (scope, cr) ->
                             toResolveSet <- Set.add (scope, CrossRef cr) toResolveSet)
                     | IntraRef _ -> ()
-                | _, Sym.Def _
-                | _, Sym.Tag _ -> ()
+                | _, Sym.Def _ -> ()
 
             defs <- defs.Remove(scope, def)
             resolved <- Graph.removeVertexWithCallback cb scopedSym resolved
@@ -424,11 +392,6 @@ module Conn =
                         addUnresolvedRefToQueue
                         (Unresolved.Scope(InScope scope))
                         unresolved
-            | Sym.Tag tag ->
-                tags <- MMap.add scope tag tags
-                // We can resolve tag right away into the Global scope
-                resolved <- Graph.addEdge scopedSym (Scope.Global, Syms.Sym.Tag tag) resolved
-
         // Finally, if any new defs were added we need to re-resolve all previously unresolved links
         // within the FullyUnknown scope
         //
@@ -480,7 +443,6 @@ module Conn =
         {
             refs = refs
             defs = defs
-            tags = tags
             resolved = resolved
             unresolved = unresolved
             refDeps = refDeps
@@ -510,7 +472,6 @@ module Conn =
     let difference c1 c2 : ConnDifference = {
         refsDifference = MMap.difference c1.refs c2.refs
         defsDifference = MMap.difference c1.defs.byScope c2.defs.byScope
-        tagsDifference = MMap.difference c1.tags c2.tags
         resolvedDifference = Graph.difference c1.resolved c2.resolved
         unresolvedDifference = Graph.difference c1.unresolved c2.unresolved
         refDepsDifference = Graph.difference c1.refDeps c2.refDeps

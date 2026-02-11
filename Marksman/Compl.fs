@@ -27,9 +27,6 @@ type PartialElement =
         anchor: option<UrlEncodedNode> *
         range: Range
     | ReferenceLink of label: option<TextNode> * range: Range
-    // TODO: consider moving tag opening out of PartialElement due to
-    // complications in findCompletableAtPos
-    | TagOpening of cursorPos: Position
     | YamlKey of input: string * range: Range
 
     override this.ToString() =
@@ -39,7 +36,6 @@ type PartialElement =
         | PartialElement.InlineLink(text, path, anchor, range) ->
             $"IL {range}: text={Node.fmtOptText text}; path={Node.fmtOptUrl path}; anchor={Node.fmtOptUrl anchor}"
         | PartialElement.ReferenceLink(label, range) -> $"RL {range}: label={Node.fmtOptText label}"
-        | TagOpening pos -> $"TO: cursorPos={pos}"
         | YamlKey(input, range) -> $"YK {range}: input={input}"
 
 module PartialElement =
@@ -51,7 +47,6 @@ module PartialElement =
         | PartialElement.InlineLink(_, _, _, range)
         | PartialElement.ReferenceLink(_, range)
         | PartialElement.YamlKey(_, range) -> range
-        | PartialElement.TagOpening cursorPos -> { Start = cursorPos; End = cursorPos } // empty range
 
     let linkInLine (line: Line) (pos: Position) : option<PartialElement> =
         monad' {
@@ -237,22 +232,8 @@ module PartialElement =
             | _, _ -> return! None
         }
 
-    let tagOpeningInLine (line: Line) (pos: Position) : option<PartialElement> =
-        let potentialHash =
-            (Line.toCursorAt pos line >>= Cursor.backward)
-            // The cursor can be at EOF, so check the end of line
-            |> Option.orElseWith (fun () -> Line.endCursor line)
-            |> Option.map Cursor.char
-
-        match potentialHash with
-        | Some '#' -> Some(PartialElement.TagOpening pos)
-        | _ -> None
-
     let inLine (line: Line) (pos: Position) : option<PartialElement> =
-        let link = linkInLine line pos
-        let tag () = tagOpeningInLine line pos
-
-        link |> Option.orElseWith tag
+        linkInLine line pos
 
     let yamlKeyInText (text: Text) (pos: Position) : option<PartialElement> =
         // Check if cursor is inside YAML front matter (between --- delimiters)
@@ -300,7 +281,6 @@ type Prompt =
     | InlineDoc of input: string
     | InlineAnchorInSrcDoc of input: string
     | InlineAnchorInOtherDoc of pathPart: string * anchorPart: string
-    | Tag of input: string
     | YamlMetadataKey of input: string
 
 module Prompt =
@@ -358,9 +338,6 @@ module Prompt =
                 Some(InlineAnchorInOtherDoc(path.text, anchor.text))
             | PE(PartialElement.ReferenceLink(label, _)) ->
                 Some(Reference(Node.textOpt label String.Empty))
-            // Tags
-            | E(T { data = { name = name } }) -> Some(Tag name.text)
-            | PE(PartialElement.TagOpening _) -> Some(Tag String.Empty)
             // YAML keys
             | PE(PartialElement.YamlKey(input, _)) -> Some(YamlMetadataKey input)
 
@@ -684,32 +661,6 @@ module Completions =
             }
         | _ -> None
 
-    let tag
-        (_pos: Position)
-        (compl: Completable)
-        (_input: string)
-        (tagName: string, numUsages: int)
-        : option<CompletionItem> =
-        let range =
-            match compl with
-            | E(T { data = { name = name } }) -> Some(Node.range name)
-            | PE(PartialElement.TagOpening _ as peTag) -> Some(PartialElement.range peTag)
-            | _ -> None
-
-        match range with
-        | None -> None
-        | Some range ->
-            let label = tagName
-            let detail = $"{numUsages} usages"
-
-            // IDEA: since we have numUsages we could provide sort text that would sort based on usages.
-            Some {
-                CompletionItem.Create(label) with
-                    Detail = Some detail
-                    TextEdit = Some(First { Range = range; NewText = label })
-                    Kind = Some CompletionItemKind.Reference
-            }
-
     let yamlMetadataKey
         (_pos: Position)
         (compl: Completable)
@@ -780,47 +731,13 @@ module Candidates =
             (Doc.index srcDoc)
         |> Seq.map Node.data
 
-    let findTagCandidates (folder: Folder) (_srcDoc: Doc) (input: string) : seq<string * int> =
-        let matchingTags =
-            seq {
-                for doc in Folder.docs folder do
-                    for tag in Index.tags (Doc.index doc) do
-                        let tagName = tag.data.name.text
-
-                        if
-                            input.ToLowerInvariant().IsSubSequenceOf(tagName.ToLowerInvariant())
-                            && not (input.Equals(tagName))
-                        then
-                            yield tagName
-            }
-            |> Seq.countBy id
-
-        matchingTags
-
 let findCompletableAtPos (doc: Doc) (pos: Position) : option<Completable> =
     let link () = Doc.index doc |> Index.linkAtPos pos |> Option.map E
-
-    let tag () =
-        Doc.index doc
-        |> Index.tags
-        // Inclusive because we want to cover cases when the cursor is right after the tag's end
-        |> Array.tryFind (fun { data = { name = name } } ->
-            (Node.range name).ContainsInclusive(pos))
-        |> Option.map (T >> E)
-
     let partialElement () = PartialElement.inText (Doc.text doc) pos |> Option.map PE
 
-    // The priority is generally link > partialElement > tag. However, when partial
-    // element is a tag opening, try to check for proper tag first.
-    // In particular, this means that [[#f will be completed as a wiki link,
-    // rather than a tag.
     match link () with
     | Some _ as link -> link
-    | _ ->
-        match partialElement () with
-        | Some(PE(PartialElement.TagOpening _)) as tagOpening -> tag () |> Option.orElse tagOpening
-        | Some _ as partialElement -> partialElement
-        | None -> tag ()
+    | _ -> partialElement ()
 
 
 let findCandidatesForCompl
@@ -881,9 +798,6 @@ let findCandidatesForCompl
                 Candidates.findHeadingCandidates folder srcDoc (Some destPart) anchorPart
 
         cand |> Seq.choose (Completions.inlineAnchorInOtherDoc pos compl)
-    | Some(Tag input) ->
-        let cand = Candidates.findTagCandidates folder srcDoc input
-        cand |> Seq.choose (Completions.tag pos compl input)
     | Some(YamlMetadataKey input) ->
         let mditaKeys = [
             "author", "Document author"

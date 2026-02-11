@@ -114,7 +114,6 @@ type Dest =
     | Doc of FileLink
     | Heading of DocLink * Cst.Node<Cst.Heading>
     | LinkDef of Doc * Cst.Node<Cst.MdLinkDef>
-    | Tag of Doc * Cst.Node<Cst.Tag>
 
 module Dest =
     let doc: Dest -> Doc =
@@ -122,7 +121,6 @@ module Dest =
         | Dest.Doc { doc = doc }
         | Dest.LinkDef(doc, _) -> doc
         | Dest.Heading(docLink, _) -> DocLink.doc docLink
-        | Dest.Tag(doc, _) -> doc
 
     let range: Dest -> Range =
         function
@@ -132,14 +130,12 @@ module Dest =
             |> Option.defaultWith (Doc.text doc).FullRange
         | Dest.Heading(_, heading) -> heading.range
         | Dest.LinkDef(_, linkDef) -> linkDef.range
-        | Dest.Tag(_, tag) -> tag.range
 
     let scope: Dest -> Range =
         function
         | Dest.Doc { doc = doc } -> (Doc.text doc).FullRange()
         | Dest.Heading(_, heading) -> heading.data.scope
         | Dest.LinkDef(_, linkDef) -> linkDef.range
-        | Dest.Tag(_, tag) -> tag.range
 
     let uri (ref: Dest) : DocumentUri = doc ref |> Doc.uri
 
@@ -194,35 +190,13 @@ module Dest =
                             |> Structure.findConcreteForSymbol destSym
                             |> Seq.choose Cst.Element.asLinkDef
                             |> Seq.map (fun node -> Dest.LinkDef(destDoc, node))
-                    | Sym.Ref _
-                    | Sym.Tag _ -> ()
+                    | Sym.Ref _ -> ()
         }
 
     let tryResolveElement (folder: Folder) (doc: Doc) (element: Cst.Element) : seq<Dest> =
         match Doc.structure doc |> Structure.tryFindSymbolForConcrete element with
         | None -> Seq.empty
         | Some sym -> tryResolveSym folder doc sym
-
-    let private findTagRefs includeDecl folder srcDocId srcEl tag =
-        let srcDoc = Folder.findDocById srcDocId folder
-
-        let refs =
-            Folder.conn folder |> Conn.Query.resolve (Scope.Global, Sym.Tag tag)
-
-        let refs =
-            seq {
-                for scope, ref in refs do
-                    match scope with
-                    | Scope.Global -> ()
-                    | Scope.Doc destDocId ->
-                        let destDoc = Folder.findDocById destDocId folder
-                        let els = destDoc.Structure |> Structure.findConcreteForSymbol ref
-
-                        yield! els |> Seq.map (fun el -> destDoc, el)
-            }
-
-        let refs = refs |> Seq.filter (fun (d, e) -> d <> srcDoc || e <> srcEl)
-        if includeDecl then Seq.append [ srcDoc, srcEl ] refs else refs
 
     let private findDefRefs includeDecl folder inDocId srcEl def =
         let inDoc = Folder.findDocById inDocId folder
@@ -320,7 +294,6 @@ module Dest =
         | Some sym ->
             let refs =
                 match sym with
-                | Sym.Tag tag -> findTagRefs includeDecl folder srcDoc.Id srcEl tag
                 | Sym.Def def -> findDefRefs includeDecl folder srcDoc.Id (Some srcEl) def
                 | Sym.Ref ref -> findRefRefs includeDecl folder srcDoc.Id ref
 

@@ -253,7 +253,7 @@ module Folder =
         let root = RootPath.toSystem root
 
         if Directory.Exists(root) then
-            let markerFiles = [| ".marksman.toml" |]
+            let markerFiles = [| ".mdita-marksman.toml" |]
             let markerDirs = [| ".git"; ".hg"; ".svn"; ".jj" |]
 
             let hasMarkerFile () =
@@ -397,7 +397,7 @@ module Folder =
 
     let private tryLoadFolderConfig (folderId: FolderId) : option<Config> =
         let folderConfigPath =
-            RootPath.appendFile folderId.data ".marksman.toml" |> AbsPath.toSystem
+            RootPath.appendFile folderId.data ".mdita-marksman.toml" |> AbsPath.toSystem
 
         if File.Exists(folderConfigPath) then
             logger.trace (

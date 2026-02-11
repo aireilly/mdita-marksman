@@ -37,7 +37,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="default.marksman.toml" LogicalName="default.marksman.toml" />
+        <EmbeddedResource Include="default.mdita-marksman.toml" LogicalName="default.mdita-marksman.toml" />
     </ItemGroup>
 
     <ItemGroup>

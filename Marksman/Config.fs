@@ -394,7 +394,7 @@ module Config =
         with :? FileNotFoundException ->
             None
 
-    let private marksman = "marksman"
+    let private marksman = "mdita-marksman"
 
     let userConfigDir =
         Path.Join(
