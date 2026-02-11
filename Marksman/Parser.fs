@@ -197,6 +197,7 @@ module Markdown =
                 .UsePreciseSourceLocation()
                 .UseYamlFrontMatter()
                 .UseMathematics()
+                .UseDefinitionLists()
 
         pipelineBuilder.InlineParsers.Insert(0, MarkdigPatches.PatchedLinkInlineParser())
         pipelineBuilder.InlineParsers.Insert(0, WikiLinkParser())
@@ -417,6 +418,23 @@ module Markdown =
 
         elements.ToArray()
 
+    let extractShortDescription (text: Text) : option<Cst.TextNode> =
+        let parsed = Markdown.Parse(text.content, markdigPipeline)
+        let mutable foundH1 = false
+        let mutable result: option<Cst.TextNode> = None
+
+        for b in parsed do
+            match b with
+            | :? HeadingBlock as h when h.Level = 1 && not foundH1 ->
+                foundH1 <- true
+            | :? Markdig.Syntax.ParagraphBlock as p when foundH1 && result.IsNone ->
+                let paraText = text.content.Substring(p.Span.Start, p.Span.Length)
+                let range = sourceSpanToRange text p.Span
+                result <- Some(Cst.Node.mkText paraText range)
+            | _ -> ()
+
+        result
+
     let rec private sortElements (text: Text) (elements: array<Element>) : unit =
         let elemOffsets el =
             let range = (Element.range el)
@@ -504,8 +522,9 @@ module Markdown =
 let parse (parserSettings: ParserSettings) (text: Text) : Structure =
     if String.IsNullOrEmpty text.content then
         let cst: Cst.Cst = { elements = [||]; childMap = Map.empty }
-        Structure.ofCst parserSettings cst
+        Structure.ofCst parserSettings cst None
     else
         let flatElements = Markdown.scrapeText parserSettings text
         let cst = Markdown.buildCst text flatElements
-        Structure.ofCst parserSettings cst
+        let shortDesc = Markdown.extractShortDescription text
+        Structure.ofCst parserSettings cst shortDesc

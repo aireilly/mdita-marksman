@@ -153,6 +153,8 @@ type Config = {
     coreTitleFromHeading: option<bool>
     coreIncrementalReferences: option<bool>
     coreParanoid: option<bool>
+    coreMditaEnable: option<bool>
+    coreMditaMapExtensions: option<array<string>>
     complWikiStyle: option<ComplWikiStyle>
     complCandidates: option<int>
 } with
@@ -161,12 +163,14 @@ type Config = {
         caTocEnable = Some true
         caTocInclude = Some [| 1; 2; 3; 4; 5; 6 |]
         caCreateMissingFileEnable = Some true
-        coreMarkdownFileExtensions = Some [| "md"; "markdown" |]
+        coreMarkdownFileExtensions = Some [| "md"; "markdown"; "mditamap" |]
         coreMarkdownGlfmHeadingIdsEnable = Some true
         coreTextSync = Some Full
         coreTitleFromHeading = Some true
         coreIncrementalReferences = Some false
         coreParanoid = Some false
+        coreMditaEnable = Some false
+        coreMditaMapExtensions = Some [| "mditamap" |]
         complWikiStyle = Some TitleSlug
         complCandidates = Some 50
     }
@@ -181,6 +185,8 @@ type Config = {
         coreTitleFromHeading = None
         coreIncrementalReferences = None
         coreParanoid = None
+        coreMditaEnable = None
+        coreMditaMapExtensions = None
         complWikiStyle = None
         complCandidates = None
     }
@@ -230,6 +236,16 @@ type Config = {
         |> Option.orElse Config.Default.coreParanoid
         |> Option.get
 
+    member this.CoreMditaEnable() =
+        this.coreMditaEnable
+        |> Option.orElse Config.Default.coreMditaEnable
+        |> Option.get
+
+    member this.CoreMditaMapExtensions() =
+        this.coreMditaMapExtensions
+        |> Option.orElse Config.Default.coreMditaMapExtensions
+        |> Option.get
+
     member this.ComplWikiStyle() =
         match this.complWikiStyle with
         | Some x -> x
@@ -272,6 +288,11 @@ let private configOfTable (table: TomlTable) : LookupResult<Config> =
 
         let! coreParanoid = getFromTableOpt<bool> table [] [ "core"; "paranoid" ]
 
+        let! coreMditaEnable = getFromTableOpt<bool> table [] [ "core"; "mdita"; "enable" ]
+
+        let! coreMditaMapExtensions =
+            getFromTableOpt<array<string>> table [] [ "core"; "mdita"; "map_extensions" ]
+
         let! complWikiStyle = getFromTableOpt<string> table [] [ "completion"; "wiki"; "style" ]
 
         let complWikiStyle =
@@ -302,6 +323,8 @@ let private configOfTable (table: TomlTable) : LookupResult<Config> =
             coreTitleFromHeading = coreTitleFromHeading
             coreIncrementalReferences = coreIncrementalReferences
             coreParanoid = coreParanoid
+            coreMditaEnable = coreMditaEnable
+            coreMditaMapExtensions = coreMditaMapExtensions
             complWikiStyle = complWikiStyle
             complCandidates = complCandidates
         }
@@ -328,6 +351,10 @@ module Config =
             hi.coreIncrementalReferences
             |> Option.orElse low.coreIncrementalReferences
         coreParanoid = hi.coreParanoid |> Option.orElse low.coreParanoid
+        coreMditaEnable = hi.coreMditaEnable |> Option.orElse low.coreMditaEnable
+        coreMditaMapExtensions =
+            hi.coreMditaMapExtensions
+            |> Option.orElse low.coreMditaMapExtensions
         complWikiStyle = hi.complWikiStyle |> Option.orElse low.complWikiStyle
         complCandidates = hi.complCandidates |> Option.orElse low.complCandidates
     }
@@ -386,12 +413,16 @@ type ParserSettings = {
     mdFileExt: string[]
     titleFromHeading: bool
     glfmHeadingIds: bool
+    mditaEnable: bool
+    mditaMapExtensions: string[]
 } with
 
     static member OfConfig(config: Config) = {
         mdFileExt = config.CoreMarkdownFileExtensions()
         titleFromHeading = config.CoreTitleFromHeading()
         glfmHeadingIds = config.CoreMarkdownGlfmHeadingIdsEnable()
+        mditaEnable = config.CoreMditaEnable()
+        mditaMapExtensions = config.CoreMditaMapExtensions()
     }
 
     static member Default = ParserSettings.OfConfig(Config.Default)

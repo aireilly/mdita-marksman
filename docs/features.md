@@ -1,25 +1,30 @@
+---
+author: Artem Pyanykh
+keyword: [features, completion, diagnostics, wiki-links, code-actions]
+---
+
 # Features
 
-✅ - done; 🗓 - planned.
+Marksman provides a comprehensive set of language features for Markdown editing, including completion, navigation, diagnostics, and refactoring.
 
-- ✅ Document symbols from headings.
-- ✅ Workspace symbols from headings.
+- (Done) Document symbols from headings.
+- (Done) Workspace symbols from headings.
     * Query matching is subsequence-based, that is `lsp` will match both `LSP` and `Low Seismic Profile`.
-- ✅ Completion for links (inline, reference, wiki).
-- ✅ Hover prevew for links.
-- ✅ "Go to definition" for links.
-- ✅ "Find references" for headings and links.
-- ✅ Diagnostics for wiki-links.
-- ✅ Support multi-folder workspaces.
-- ✅ Custom parser for more fine-grained note structure.
-- ✅ Code Lens with "# references" on headings.
-- ✅ Rename refactor.
-- 🗓 Add support for images (diagnostics, completion, goto).
-- 🗓 Add "check" command for standalone workspace checking.
-- 🗓 Add "build" command that rewrites all cross-references into proper
+- (Done) Completion for links (inline, reference, wiki).
+- (Done) Hover prevew for links.
+- (Done) "Go to definition" for links.
+- (Done) "Find references" for headings and links.
+- (Done) Diagnostics for wiki-links.
+- (Done) Support multi-folder workspaces.
+- (Done) Custom parser for more fine-grained note structure.
+- (Done) Code Lens with "# references" on headings.
+- (Done) Rename refactor.
+- (Planned) Add support for images (diagnostics, completion, goto).
+- (Planned) Add "check" command for standalone workspace checking.
+- (Planned) Add "build" command that rewrites all cross-references into proper
   relative markdown links for further embedding into a static site generator
   such as Jekyll or Hakyll.
-- 🗓 Support for Jupyter notebooks.
+- (Planned) Support for Jupyter notebooks.
 
 ## Configuration
 
@@ -101,11 +106,13 @@ workspace. similarly to what Git does.
 ## Workspace folders, project roots, and single-file mode
 
 The LSP specification is designed to work with projects rather than individual
-files[^single-file-mode]. Marksman has a custom **single-file mode** that
-provides a *subset* of language features for markdown files open outside of any
-project. This works well for small one-off edits or when opening random
-markdown files. However, when you have several interconnected documents do
-consider setting up a project folder for them for an improved experience.
+files. There is an initiative to add a single-file mode to LSP but it is not
+a part of the spec at least until and including v3.17. Marksman has a custom
+**single-file mode** that provides a *subset* of language features for markdown
+files open outside of any project. This works well for small one-off edits or
+when opening random markdown files. However, when you have several
+interconnected documents do consider setting up a project folder for them for
+an improved experience.
 
 How a folder (aka project, aka root) is found varies between editors, but
 usually it's either

@@ -8,6 +8,7 @@ open Marksman.Index
 open Marksman.Names
 open Marksman.Paths
 open Marksman.Doc
+open Marksman.Config
 open Marksman.Folder
 
 let entryToHuman (entry: Entry) =
@@ -118,3 +119,84 @@ let noCrossFileDiagOnSingleFileFolders () =
         ],
         diag
     )
+
+[<Fact>]
+let mditaDiag_missingFrontMatter () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc = FakeDoc.Mk([| "# Title"; "Some content" |], config = mditaConfig)
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "MDITA: Missing YAML front matter. Add a front matter block with '---' delimiters."),
+        diag
+    )
+
+[<Fact>]
+let mditaDiag_missingShortDescription () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc = FakeDoc.Mk([| "---"; "author: test"; "---"; "# Title" |], config = mditaConfig)
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "MDITA: Missing short description. Add a paragraph immediately after the title heading."),
+        diag
+    )
+
+[<Fact>]
+let mditaDiag_invalidHeadingHierarchy () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [| "---"; "author: test"; "---"; "# Title"; "A short desc."; "#### Bad Level" |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "MDITA: Heading level 4 skips levels. Expected at most level 2."),
+        diag
+    )
+
+[<Fact>]
+let mditaDiag_noMditaDiagsWhenDisabled () =
+    let doc = FakeDoc.Mk([| "# Title"; "Some content" |])
+    let folder = FakeFolder.Mk([ doc ])
+    let diag = checkFolder folder |> diagToHuman
+
+    // Should not contain any MDITA diagnostics when MDITA mode is off
+    for _, msg in diag do
+        Assert.False(msg.StartsWith("MDITA:"), $"Unexpected MDITA diagnostic: {msg}")
+
+[<Fact>]
+let mditaDiag_shortcutLinksWarnInMditaMode () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc = FakeDoc.Mk([| "# H1"; "[shortcut]" |], config = mditaConfig)
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    // In MDITA mode, shortcut links should produce diagnostics
+    let hasBrokenLink =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("non-existent"))
+
+    Assert.True(hasBrokenLink, "Expected broken link diagnostic for shortcut link in MDITA mode")

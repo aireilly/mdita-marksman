@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(xargs:*)",
+      "Bash(wc:*)",
+      "Bash(dotnet build:*)",
+      "Bash(export DOTNET_ROOT=/usr/lib64/dotnet)",
+      "Bash(export PATH=\"$DOTNET_ROOT:$PATH\")",
+      "Bash(dotnet --version:*)",
+      "Bash(dotnet --list-runtimes:*)",
+      "Bash(dotnet test:*)"
+    ]
+  }
+}

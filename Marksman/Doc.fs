@@ -15,6 +15,11 @@ open Marksman.Structure
 
 open Marksman.Cst
 
+[<RequireQualifiedAccess>]
+type DocKind =
+    | Topic
+    | Map
+
 [<CustomEquality; CustomComparison>]
 type Doc = {
     id: DocId
@@ -22,6 +27,7 @@ type Doc = {
     text: Text
     structure: Structure
     index: Index
+    kind: DocKind
 } with
 
     member this.RootPath = RootedRelPath.rootPath this.id.Path
@@ -66,10 +72,18 @@ module Doc =
 
     let logger = LogProvider.getLoggerByName "Doc"
 
-    let mk parserSettings id version text =
+    let mk parserSettings (id: DocId) version text =
         try
             let structure = Parser.parse parserSettings text
-            let index = Index.ofCst (Structure.concreteElements structure)
+            let index = Index.ofCst (Structure.concreteElements structure) structure.ShortDescription
+
+            let docPath = RootedRelPath.toAbs id.Path |> AbsPath.toSystem
+
+            let kind =
+                if Misc.isMditaMapFile parserSettings.mditaMapExtensions docPath then
+                    DocKind.Map
+                else
+                    DocKind.Topic
 
             {
                 id = id
@@ -77,6 +91,7 @@ module Doc =
                 text = text
                 structure = structure
                 index = index
+                kind = kind
             }
         with exn ->
             raise (DocumentError(id.Path, exn))
@@ -84,9 +99,9 @@ module Doc =
     let id { id = id } = id
     let text doc = doc.text
 
-    let withText config newText doc =
+    let withText config newText (doc: Doc) =
         let newStructure = Parser.parse config newText
-        let newIndex = Index.ofCst (Structure.concreteElements newStructure)
+        let newIndex = Index.ofCst (Structure.concreteElements newStructure) newStructure.ShortDescription
 
         {
             doc with
@@ -94,7 +109,6 @@ module Doc =
                 structure = newStructure
                 index = newIndex
         }
-
 
     let applyLspChange parserSettings (change: DidChangeTextDocumentParams) (doc: Doc) : Doc =
         let newVersion = change.TextDocument.Version

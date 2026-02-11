@@ -1,3 +1,8 @@
+---
+author: Artem Pyanykh
+keyword: [marksman, markdown, lsp, language-server, zettelkasten]
+---
+
 [![Build & Test](https://github.com/artempyanykh/marksman/actions/workflows/build.yml/badge.svg)](https://github.com/artempyanykh/marksman/actions/workflows/build.yml)
 [![release](https://img.shields.io/github/v/release/artempyanykh/marksman)](https://github.com/artempyanykh/marksman/releases)
 [![homebrew](https://img.shields.io/homebrew/v/marksman)](https://formulae.brew.sh/formula/marksman)
@@ -6,17 +11,16 @@
 
 # Marksman
 
-_Write Markdown with code assist and intelligence in the comfort of your favourite editor._
+Marksman is a program that integrates with your editor to assist you in writing and maintaining your Markdown documents, providing code assist and intelligence in the comfort of your favourite editor.
 
 ![splash](assets/readme/splash.png)
 
----
-
-Marksman is a program that integrates with your editor to assist you in writing and maintaining your Markdown documents.
-Using [LSP protocol][lsp-main] it provides **completion**, goto **definition**, find **references**, **rename**
+Using the [LSP protocol][lsp-main] it provides **completion**, goto **definition**, find **references**, **rename**
 refactoring, **diagnostics**, and more. In addition to regular Markdown, it also supports **wiki-link**-style references
-that enable [Zettelkasten-like][zettel-wiki][^roam-research]<sup>,</sup> [^markdown-memo] note taking. See more about Marksman's
-features below.
+that enable [Zettelkasten-like][zettel-wiki] note taking. You may have heard about [Roam Research][roam], which is a
+commercial implementation of the Zettelkasten method. Unlike proprietary Roam Research, Marksman is free, open-source
+and integrated into your favourite editor. There is also an excellent VSCode extension called [Markdown Memo][md-memo]
+worth checking out if you primarily use VSCode.
 
 Marksman **works on MacOS, Linux, and Windows** and is distributed as a **self-contained binary** for each OS.
 
@@ -29,9 +33,9 @@ The server provides assistance with:
    ```
 * Markdown reference links:
    ```md
-   See [reference].
+   See [reference][ref-label].
 
-   [reference]: /url "Title"
+   [ref-label]: /url "Title"
    ```
 * Wiki-links:
    ```md
@@ -43,7 +47,9 @@ The server provides assistance with:
 All types of links support completion, hover, goto definition/references. Additionally, Marksman provides diagnostics
 for wiki-links to detect broken references and duplicate/ambiguous headings.
 
-## Existing editor integrations[^lsp]:
+## Existing editor integrations
+
+Since Marksman is a regular Language Server most of the functionality works out of the box with any LSP client.
 
 * VSCode via [Marksman VSCode][mn-vscode].
 * Neovim:
@@ -51,9 +57,9 @@ for wiki-links to detect broken references and duplicate/ambiguous headings.
     * via [nvim-lspconfig][nvim-marksman],
     * via [CoC-marksman][coc-marksman].
 * Vim:
-    * via [ale](ale) - Ale has built-in support for Marksman
+    * via [ale][ale] - Ale has built-in support for Marksman
 
-    * via [lsp](lsp)
+    * via [lsp][lsp]
 
       Example config (add the following to your `~/.vim/after/ftplugin/markdown.vim`):
 
@@ -91,7 +97,7 @@ for wiki-links to detect broken references and duplicate/ambiguous headings.
 * BBEdit [can be configured](https://github.com/artempyanykh/marksman/discussions/206#discussioncomment-5906423) to use Marksman as an LSP server for Markdown files.
 * [Zed](https://zed.dev/) supports Marksman through it's integrated LSP support,
   by addinging it as an available LSP for Markdown in Zed's `settings.json`:
-  
+
   ```jsonc
   // Zed settings
   {
@@ -127,24 +133,8 @@ See [the Features page](/docs/features.md) to learn more about language features
 
 * Cross-file references and completions don't work.
     + Either create an empty `.marksman.toml` in the root folder of your project or initialize a repository (e.g. `git init`). See [this page](/docs/features.md#workspace-folders-project-roots-and-single-file-mode) to learn more about single- and mult-file modes.
-* I'm getting "marksman can’t be opened because Apple cannot check it for malicious software" on MacOS.
+* I'm getting "marksman can't be opened because Apple cannot check it for malicious software" on MacOS.
     + Run the following command to bypass it and let Mac know that it's fine: `xattr -d com.apple.quarantine <path-to-marksman-bin>`.
-
-[^roam-research]: You may have heard about [Roam Research][roam]. That is a commercial implementation of the
-Zettelkasten method and another point of reference for what Marksman is about. However, unlike a proprietary Roam
-Research, Marksman is free, open-source and integrated into your favourite editor (albeit for not not as feature rich as
-Roam Research).
-
-[^markdown-memo]: There is an excellent VSCode extension called [Markdown Memo][md-memo]. You definitely need
-to check it out if you're primarily using VSCode as it has some features that are missing in Marksman and [Marksman
-VSCode extension][mn-vscode]. However, Markdown Memo is VSCode specific while Marksman is a generic language server, so
-can be used with any editor that has LSP support: Emacs, Vim, Neovim, etc.
-
-[^lsp]: Since Marksman is a regular Language Server most of the functionality works out of the box
-with any LSP client.
-
-[^single-file-mode]: There is an initiative to add a single-file mode to
-LSP but it's not a part of the spec at least until and including v3.17.
 
 [zettel-wiki]: https://en.wikipedia.org/wiki/Zettelkasten
 
@@ -177,3 +167,5 @@ LSP but it's not a part of the spec at least until and including v3.17.
 [sublime-marksman]: https://github.com/sublimelsp/LSP-marksman
 
 [ale]: https://github.com/dense-analysis/ale
+
+[lsp]: https://github.com/yegappan/lsp

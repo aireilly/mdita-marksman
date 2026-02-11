@@ -4,7 +4,7 @@
 
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
@@ -22,6 +22,8 @@
         <Compile Include="RefactorTests.fs" />
         <Compile Include="SymbolsTests.fs" />
         <Compile Include="ConfigTests.fs" />
+        <Compile Include="YamlMetadataTests.fs" />
+        <Compile Include="MditaMapTests.fs" />
         <Compile Include="GitIgnoreTest.fs" />
         <Compile Include="StateTests.fs" />
         <Compile Include="ServerTests.fs" />

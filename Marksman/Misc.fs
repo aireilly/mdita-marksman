@@ -160,6 +160,18 @@ let ensureMarkdownExt (configuredExts: seq<string>) (path: string) : string =
         let ext = Seq.head configuredExts
         $"{path}.{ext}"
 
+let isMditaMapFile (mapExtensions: seq<string>) (path: string) : bool =
+    if isEmacsBackup path then
+        false
+    else
+        let ext = Path.GetExtension path
+
+        match ext with
+        | null -> false
+        | ext ->
+            let ext = ext.TrimStart('.').ToLowerInvariant()
+            Seq.contains ext mapExtensions
+
 let isPotentiallyMarkdownFile (configuredExts: seq<string>) (path: string) : bool =
     let ext = Path.GetExtension path
 

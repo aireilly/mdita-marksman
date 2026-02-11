@@ -12,6 +12,11 @@ open Marksman.Cst
 open Marksman.Index
 open Marksman.Syms
 
+[<RequireQualifiedAccess>]
+type DocKind =
+    | Topic
+    | Map
+
 [<Sealed>]
 type Doc =
     member Id: DocId

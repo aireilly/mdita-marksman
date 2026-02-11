@@ -1,4 +1,11 @@
+---
+author: Artem Pyanykh
+keyword: [installation, setup, binary, package-manager]
+---
+
 # Installation options
+
+Marksman can be installed via a package manager, from a pre-built binary, or built from source.
 
 ## Option 1: via a package manager
 
@@ -10,7 +17,7 @@ Available for MacOS and Linux:
 brew install marksman
 ```
 
-#### Nix
+### Nix
 
 `marksman` is available [via `nixpkgs`](https://search.nixos.org/packages?query=marksman) for Linux
 and MacOS.
@@ -48,7 +55,7 @@ sudo snap install --edge marksman
 
 **NOTE**: If you're on MacOS and are getting a popup about:
 
-> “marksman” can’t be opened because Apple cannot check it for malicious software...
+> "marksman" can't be opened because Apple cannot check it for malicious software...
 
 Then you can run the following command to bypass it and let Mac know that it's
 fine:
@@ -63,4 +70,3 @@ xattr -d com.apple.quarantine <path-to-marksman-bin>
 1. Clone the repository: `git clone https://github.com/artempyanykh/marksman.git`
 2. Inside `marksman` folder run `make install`
 3. The binary will be installed under `$HOME/.local/bin` (make sure this folder is in your `PATH`).
-

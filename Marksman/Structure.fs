@@ -11,12 +11,14 @@ type Structure = private {
     sym: Set<Sym>
     c2a: Mapping<Cst.Element, Ast.Element>
     a2s: Mapping<Ast.Element, Sym>
+    shortDesc: option<Cst.TextNode>
 } with
 
     member this.Cst = this.cst
     member this.Ast = this.ast
 
     member this.Symbols = this.sym
+    member this.ShortDescription = this.shortDesc
 
 module Structure =
     let abstractElements { ast = ast } = ast.elements
@@ -61,7 +63,7 @@ module Structure =
         findAbstractForSymbol sym structure
         |> Set.fold (fun acc ael -> acc + findConcreteForAbstract ael structure) Set.empty
 
-    let ofCst (parserSettings: Config.ParserSettings) (cst: Cst.Cst) : Structure =
+    let ofCst (parserSettings: Config.ParserSettings) (cst: Cst.Cst) (shortDescription: option<Cst.TextNode>) : Structure =
         let rec go cst =
             seq {
                 for cel in cst do
@@ -98,4 +100,5 @@ module Structure =
             sym = syms.ToArray() |> Set.ofArray
             c2a = c2a
             a2s = a2s
+            shortDesc = shortDescription
         }

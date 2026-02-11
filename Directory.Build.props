@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- Disable parallel project compilation to avoid exhausting system
+         resources during F# builds. Projects are still built in dependency
+         order, just not concurrently. -->
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
+</Project>

@@ -1,6 +1,12 @@
-﻿# Configuration
+---
+author: Artem Pyanykh
+keyword: [configuration, settings, toml]
+---
 
-Marksman supports user-level and project-level configuration:
+# Configuration
+
+Marksman supports user-level and project-level configuration for customizing its behavior.
+
 1. User-level configuration is read from:
    * `$HOME/.config/marksman/config.toml` on Linux,
    * `$HOME/Library/Application Support/marksman/config.toml` on macOS,

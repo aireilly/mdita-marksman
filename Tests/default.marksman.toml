@@ -3,7 +3,7 @@
 # Only override what is needed.
 
 [core]
-markdown.file_extensions = ["md", "markdown"]
+markdown.file_extensions = ["md", "markdown", "mditamap"]
 # Enable GitLab Flavored Markdown heading ID disambiguation method described
 # in https://docs.gitlab.com/ee/user/markdown.html#heading-ids-and-links.
 # This enables multiple headings with equal IDs to be deterministically
@@ -34,6 +34,12 @@ incremental_references = false
 # For debugging only! Enables extra validation checks around
 # incremental state updates. SIGNIFICANTLY IMPACTS PERFORMANCE
 paranoid = false
+
+[core.mdita]
+# Enable MDITA (Markdown DITA) mode for enhanced DITA-compatible authoring
+enable = false
+# File extensions recognized as MDITA map files
+map_extensions = ["mditamap"]
 
 [code_action]
 # Enable/disable "Table of Contents" code action

@@ -18,12 +18,18 @@ type Entry =
     | AmbiguousLink of Element * Syms.Ref * array<Dest>
     | BrokenLink of Element * Syms.Ref
     | NonBreakableWhitespace of Lsp.Range
+    | MissingYamlFrontMatter
+    | MissingShortDescription
+    | InvalidHeadingHierarchy of Lsp.Range * currentLevel: int * expectedMaxLevel: int
 
 let code: Entry -> string =
     function
     | AmbiguousLink _ -> "1"
     | BrokenLink _ -> "2"
     | NonBreakableWhitespace _ -> "3"
+    | MissingYamlFrontMatter -> "4"
+    | MissingShortDescription -> "5"
+    | InvalidHeadingHierarchy _ -> "6"
 
 let checkNonBreakingWhitespace (doc: Doc) =
     let nonBreakingWhitespace = "\u00a0"
@@ -49,6 +55,8 @@ let checkNonBreakingWhitespace (doc: Doc) =
 
 let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
     let exts = Folder.configuredMarkdownExts folder
+    let config = Folder.configOrDefault folder
+    let mditaEnabled = config.CoreMditaEnable()
 
     let ref =
         doc.Structure
@@ -66,9 +74,14 @@ let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
             []
         else if refs.Length = 0 then
             match linkEl with
-            // Inline shortcut links often are a part of regular text.
-            // Raising diagnostics on them would be noisy.
-            | ML { data = MdLink.RS _ } -> []
+            // In MDITA mode, shortcut reference links [key] become keyrefs
+            // and should produce warnings for unresolved references.
+            // In standard mode, suppress diagnostics as they are often regular text.
+            | ML { data = MdLink.RS _ } ->
+                if mditaEnabled then
+                    [ BrokenLink(linkEl, ref) ]
+                else
+                    []
             | ML { data = MdLink.IL(_, url, _) } ->
                 match url with
                 | Some { data = url } ->
@@ -83,17 +96,51 @@ let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
         else
             [ AmbiguousLink(linkEl, ref, refs) ]
 
+let checkMditaCompliance (doc: Doc) : list<Entry> =
+    let index = Doc.index doc
+    let mutable entries = []
+
+    // Check for YAML front matter
+    if index.yamlFrontMatter.IsNone then
+        entries <- MissingYamlFrontMatter :: entries
+
+    // Check for short description (first paragraph after H1)
+    if index.shortDescription.IsNone && (Index.titles index |> Array.isEmpty |> not) then
+        entries <- MissingShortDescription :: entries
+
+    // Check heading hierarchy - levels should not skip (e.g. H1 -> H4 without H2/H3)
+    let headings = Index.headings index
+    let mutable prevLevel = 0
+
+    for h in headings do
+        let level = h.data.level
+
+        if level > prevLevel + 1 && prevLevel > 0 then
+            entries <-
+                InvalidHeadingHierarchy(h.range, level, prevLevel + 1)
+                :: entries
+
+        prevLevel <- level
+
+    List.rev entries
+
 let checkLinks (folder: Folder) (doc: Doc) : seq<Entry> =
     let links = Doc.index >> Index.links <| doc
     links |> Seq.collect (checkLink folder doc)
 
 let checkFolder (folder: Folder) : seq<DocId * list<Entry>> =
+    let config = Folder.configOrDefault folder
+    let mditaEnabled = config.CoreMditaEnable()
+
     seq {
         for doc in Folder.docs folder do
             let docDiag =
                 seq {
                     yield! checkLinks folder doc
                     yield! checkNonBreakingWhitespace doc
+
+                    if mditaEnabled then
+                        yield! checkMditaCompliance doc
                 }
                 |> List.ofSeq
 
@@ -180,6 +227,40 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Source = Some "Marksman"
         Message =
             "Non-breaking whitespace used instead of regular whitespace. This line won't be interpreted as a heading"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | MissingYamlFrontMatter -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "Marksman"
+        Message = "MDITA: Missing YAML front matter. Add a front matter block with '---' delimiters."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | MissingShortDescription -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Information
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "Marksman"
+        Message = "MDITA: Missing short description. Add a paragraph immediately after the title heading."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | InvalidHeadingHierarchy(headingRange, currentLevel, expectedMaxLevel) -> {
+        Range = headingRange
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "Marksman"
+        Message =
+            $"MDITA: Heading level {currentLevel} skips levels. Expected at most level {expectedMaxLevel}."
         RelatedInformation = None
         Tags = None
         Data = None

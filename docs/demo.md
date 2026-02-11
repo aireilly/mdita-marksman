@@ -1,7 +1,11 @@
+---
+author: Artem Pyanykh
+keyword: [demo, screenshots, examples]
+---
+
 # Demo
 
-Below is a mix of VSCode, Neovim, and Emacs screenshots. Although, not all features demonstrated for each editor,
-generally most features should work equaly in all editors.
+Below is a mix of VSCode, Neovim, and Emacs screenshots demonstrating Marksman's features across different editors.
 
 - **Document symbols**:
   ![Document Symbols](/assets/readme/gifs/document-symbols.gif)

@@ -255,3 +255,40 @@ title_from_heading = false
 
     Assert.False(actual.CoreTitleFromHeading())
     Assert.Equal(ComplWikiStyle.FileStem, actual.ComplWikiStyle())
+
+[<Fact>]
+let testParse_mditaEnable () =
+    let content =
+        """
+[core.mdita]
+enable = true
+"""
+
+    let actual = Config.tryParse content
+
+    let expected = { Config.Empty with coreMditaEnable = Some true }
+
+    Assert.Equal(Some expected, actual)
+
+[<Fact>]
+let testParse_mditaMapExtensions () =
+    let content =
+        """
+[core.mdita]
+map_extensions = ["mditamap", "ditamap"]
+"""
+
+    let actual = Config.tryParse content
+
+    let expected = {
+        Config.Empty with
+            coreMditaMapExtensions = Some [| "mditamap"; "ditamap" |]
+    }
+
+    Assert.Equal(Some expected, actual)
+
+[<Fact>]
+let testParse_mditaDefaults () =
+    let config = Config.Default
+    Assert.False(config.CoreMditaEnable())
+    Assert.Equal<string>([| "mditamap" |], config.CoreMditaMapExtensions())

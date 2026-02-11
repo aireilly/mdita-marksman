@@ -162,6 +162,22 @@ module Url =
     let ofUrlNode (url: UrlEncodedNode) : Url<UrlEncoded> =
         ofTextNode UrlEncoded.mkUnchecked (Node.asText url)
 
+    /// Parse a DITA-style fragment identifier of the form "topicID/sectionID"
+    /// into a tuple of (topicId, sectionId option).
+    let parseDitaFragment (anchor: string) : string * option<string> =
+        let slashIdx = anchor.IndexOf('/')
+
+        if slashIdx < 0 then
+            anchor, None
+        else
+            let topicId = anchor.Substring(0, slashIdx)
+            let sectionId = anchor.Substring(slashIdx + 1)
+
+            if sectionId.Length > 0 then
+                topicId, Some sectionId
+            else
+                topicId, None
+
 module MdLink =
     let fmt (ml: MdLink) : string =
         match ml with
@@ -234,6 +250,120 @@ type Tag = { name: TextNode }
 
 module Tag =
     let fmt (t: Tag) = $"name={t.name.text}; range={t.name.range}"
+
+type YamlMetadata = {
+    author: option<string>
+    source: option<string>
+    publisher: option<string>
+    permissions: option<string>
+    audience: option<string>
+    category: option<string>
+    keyword: option<list<string>>
+    resourceid: option<string>
+    otherMeta: Map<string, string>
+}
+
+module YamlMetadata =
+    let empty = {
+        author = None
+        source = None
+        publisher = None
+        permissions = None
+        audience = None
+        category = None
+        keyword = None
+        resourceid = None
+        otherMeta = Map.empty
+    }
+
+    /// Parse simple YAML key-value pairs from MDITA front matter.
+    let parse (rawYaml: string) : YamlMetadata =
+        let lines =
+            rawYaml.Split([| '\n'; '\r' |], StringSplitOptions.RemoveEmptyEntries)
+
+        let mutable kvPairs = Map.empty<string, string>
+        let mutable listPairs = Map.empty<string, list<string>>
+        let mutable currentListKey: option<string> = None
+
+        for line in lines do
+            let trimmed = line.Trim()
+
+            if trimmed = "---" || trimmed = "..." then
+                ()
+            elif trimmed.StartsWith("- ") && currentListKey.IsSome then
+                let value = trimmed.Substring(2).Trim().Trim('"').Trim('\'')
+                let key = currentListKey.Value
+
+                let existing =
+                    listPairs
+                    |> Map.tryFind key
+                    |> Option.defaultValue []
+
+                listPairs <- Map.add key (existing @ [ value ]) listPairs
+            else
+                let colonIdx = trimmed.IndexOf(':')
+
+                if colonIdx > 0 then
+                    let key = trimmed.Substring(0, colonIdx).Trim()
+                    let value = trimmed.Substring(colonIdx + 1).Trim()
+
+                    if value = "" then
+                        currentListKey <- Some key
+                    elif value.StartsWith("[") && value.EndsWith("]") then
+                        let inner = value.Substring(1, value.Length - 2)
+
+                        let items =
+                            inner.Split(',')
+                            |> Array.map (fun s -> s.Trim().Trim('"').Trim('\''))
+                            |> Array.filter (fun s -> s.Length > 0)
+                            |> List.ofArray
+
+                        listPairs <- Map.add key items listPairs
+                        currentListKey <- None
+                    else
+                        let value = value.Trim('"').Trim('\'')
+                        kvPairs <- Map.add key value kvPairs
+                        currentListKey <- None
+                else
+                    currentListKey <- None
+
+        let get key = Map.tryFind key kvPairs
+
+        let getList key =
+            match Map.tryFind key listPairs with
+            | Some items -> Some items
+            | None ->
+                match Map.tryFind key kvPairs with
+                | Some v -> Some [ v ]
+                | None -> None
+
+        let knownKeys =
+            set [
+                "author"
+                "source"
+                "publisher"
+                "permissions"
+                "audience"
+                "category"
+                "keyword"
+                "resourceid"
+            ]
+
+        let otherMeta =
+            kvPairs
+            |> Map.filter (fun k _ -> not (Set.contains k knownKeys))
+
+        {
+            author = get "author"
+            source = get "source"
+            publisher = get "publisher"
+            permissions = get "permissions"
+            audience = get "audience"
+            category = get "category"
+            keyword = getList "keyword"
+            resourceid = get "resourceid"
+            otherMeta = otherMeta
+        }
 
 type Element =
     | H of Node<Heading>

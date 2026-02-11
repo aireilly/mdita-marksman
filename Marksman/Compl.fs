@@ -30,6 +30,7 @@ type PartialElement =
     // TODO: consider moving tag opening out of PartialElement due to
     // complications in findCompletableAtPos
     | TagOpening of cursorPos: Position
+    | YamlKey of input: string * range: Range
 
     override this.ToString() =
         match this with
@@ -39,6 +40,7 @@ type PartialElement =
             $"IL {range}: text={Node.fmtOptText text}; path={Node.fmtOptUrl path}; anchor={Node.fmtOptUrl anchor}"
         | PartialElement.ReferenceLink(label, range) -> $"RL {range}: label={Node.fmtOptText label}"
         | TagOpening pos -> $"TO: cursorPos={pos}"
+        | YamlKey(input, range) -> $"YK {range}: input={input}"
 
 module PartialElement =
     open FSharpPlus.Operators
@@ -47,7 +49,8 @@ module PartialElement =
         function
         | PartialElement.WikiLink(_, _, range)
         | PartialElement.InlineLink(_, _, _, range)
-        | PartialElement.ReferenceLink(_, range) -> range
+        | PartialElement.ReferenceLink(_, range)
+        | PartialElement.YamlKey(_, range) -> range
         | PartialElement.TagOpening cursorPos -> { Start = cursorPos; End = cursorPos } // empty range
 
     let linkInLine (line: Line) (pos: Position) : option<PartialElement> =
@@ -251,8 +254,33 @@ module PartialElement =
 
         link |> Option.orElseWith tag
 
+    let yamlKeyInText (text: Text) (pos: Position) : option<PartialElement> =
+        // Check if cursor is inside YAML front matter (between --- delimiters)
+        let lines = text.content.Split([| '\n' |])
+
+        if lines.Length < 2 || not (lines.[0].Trim() = "---") then
+            None
+        else
+            // Find the closing ---
+            let mutable closingLine = -1
+
+            for i in 1 .. lines.Length - 1 do
+                if closingLine < 0 && lines.[i].Trim() = "---" then
+                    closingLine <- i
+
+            if closingLine < 0 || pos.Line <= 0 || pos.Line >= closingLine then
+                None
+            else
+                // We're inside the YAML front matter
+                let line = lines.[pos.Line]
+                let colonIdx = line.IndexOf(':')
+                let input = if colonIdx >= 0 then line.Substring(0, colonIdx).Trim() else line.Trim()
+                let range = Range.Mk(pos.Line, 0, pos.Line, line.Length)
+                Some(PartialElement.YamlKey(input, range))
+
     let inText (text: Text) (pos: Position) : option<PartialElement> =
-        Line.ofPos text pos |> Option.bind (fun l -> inLine l pos)
+        let yaml = yamlKeyInText text pos
+        yaml |> Option.orElseWith (fun () -> Line.ofPos text pos |> Option.bind (fun l -> inLine l pos))
 
 type Completable =
     | E of Element
@@ -273,6 +301,7 @@ type Prompt =
     | InlineAnchorInSrcDoc of input: string
     | InlineAnchorInOtherDoc of pathPart: string * anchorPart: string
     | Tag of input: string
+    | YamlMetadataKey of input: string
 
 module Prompt =
     let ofCompletable (pos: Position) (compl: Completable) : option<Prompt> =
@@ -332,6 +361,8 @@ module Prompt =
             // Tags
             | E(T { data = { name = name } }) -> Some(Tag name.text)
             | PE(PartialElement.TagOpening _) -> Some(Tag String.Empty)
+            // YAML keys
+            | PE(PartialElement.YamlKey(input, _)) -> Some(YamlMetadataKey input)
 
 module CompletionHelpers =
     let wikiTargetLink (config: Config) (doc: Doc) : WikiDest =
@@ -679,6 +710,25 @@ module Completions =
                     Kind = Some CompletionItemKind.Reference
             }
 
+    let yamlMetadataKey
+        (_pos: Position)
+        (compl: Completable)
+        (input: string)
+        (keyName: string, description: string)
+        : option<CompletionItem> =
+        match compl with
+        | PE(PartialElement.YamlKey(_, range)) ->
+            if input.Length = 0 || keyName.StartsWith(input, StringComparison.OrdinalIgnoreCase) then
+                Some {
+                    CompletionItem.Create(keyName) with
+                        Detail = Some description
+                        TextEdit = Some(First { Range = range; NewText = $"{keyName}: " })
+                        Kind = Some CompletionItemKind.Property
+                }
+            else
+                None
+        | _ -> None
+
 module Candidates =
     let findDocCandidates (folder: Folder) (srcDoc: Doc) (destPart: option<InternName>) : seq<Doc> =
         let candidates =
@@ -834,6 +884,19 @@ let findCandidatesForCompl
     | Some(Tag input) ->
         let cand = Candidates.findTagCandidates folder srcDoc input
         cand |> Seq.choose (Completions.tag pos compl input)
+    | Some(YamlMetadataKey input) ->
+        let mditaKeys = [
+            "author", "Document author"
+            "source", "Source of the content"
+            "publisher", "Content publisher"
+            "permissions", "Access permissions"
+            "audience", "Target audience"
+            "category", "Document category"
+            "keyword", "Keywords for the document"
+            "resourceid", "Resource identifier"
+        ]
+
+        mditaKeys |> Seq.choose (Completions.yamlMetadataKey pos compl input)
 
 let findCandidatesInDoc (folder: Folder) (doc: Doc) (pos: Position) : seq<CompletionItem> =
     match findCompletableAtPos doc pos with

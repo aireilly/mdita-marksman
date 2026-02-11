@@ -17,10 +17,12 @@ type Index = {
     linkDefs: array<Node<MdLinkDef>>
     tags: array<Node<Tag>>
     yamlFrontMatter: option<TextNode>
+    yamlMetadata: option<YamlMetadata>
+    shortDescription: option<TextNode>
 }
 
 module Index =
-    let ofCst (cels: Cst.Element[]) : Index =
+    let ofCst (cels: Cst.Element[]) (shortDesc: option<TextNode>) : Index =
         let titles = ResizeArray()
         let headingsBySlug = Dictionary<Slug, ResizeArray<Node<Heading>>>()
         let wikiLinks = ResizeArray()
@@ -64,6 +66,10 @@ module Index =
         let headings = headings.ToArray()
         let tags = tags.ToArray()
 
+        let yamlMetadata =
+            yaml
+            |> Option.map (fun yml -> YamlMetadata.parse yml.text)
+
         {
             titles = titles
             headings = headings
@@ -73,6 +79,8 @@ module Index =
             linkDefs = linkDefs
             tags = tags
             yamlFrontMatter = yaml
+            yamlMetadata = yamlMetadata
+            shortDescription = shortDesc
         }
 
     let titles index = index.titles
