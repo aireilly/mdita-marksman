@@ -1,11 +1,9 @@
----
-author: Aidan Reilly
-keyword: [mdita-marksman, mdita, markdown, dita, lsp, language-server]
----
-
 # MDITA Marksman
 
 MDITA Marksman is a language server for MDITA (Markdown DITA) documents. It integrates with your editor to assist you in writing and maintaining MDITA content, providing code assist and intelligence.
+
+<img width="650" alt="image" src="https://github.com/user-attachments/assets/12c41c9a-60a2-4e7f-a034-197e573a66db" />
+
 
 Based on the [Marksman](https://github.com/artempyanykh/marksman) LSP server, MDITA Marksman extends it with support for the [MDITA syntax specification](https://www.dita-ot.org/dev/reference/markdown/mdita-syntax) from DITA-OT.
 
