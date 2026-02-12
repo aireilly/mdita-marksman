@@ -170,7 +170,7 @@ module ServerUtil =
                     }
                 RenameProvider = renameOptions
                 CodeLensProvider = Some { ResolveProvider = None }
-                ExecuteCommandProvider = Some { commands = Some [||] }
+                ExecuteCommandProvider = Some { commands = Some [| "marksman.createFile" |] }
         }
 
 type MarksmanStatusParams = { state: string; docCount: int }
@@ -914,11 +914,11 @@ type MarksmanServer(client: MarksmanClient) =
         <| fun state ->
             let docPath = opts.TextDocument.Uri |> UriWith.mkAbs
 
-            let codeAction title kind edit = {
+            let codeAction title kind edit command = {
                 Title = title
                 Kind = kind
                 Diagnostics = None
-                Command = None
+                Command = command
                 Data = None
                 IsPreferred = Some false
                 Disabled = None
@@ -940,7 +940,7 @@ type MarksmanServer(client: MarksmanClient) =
 
                             let caKind = Some CodeActionKind.Source
 
-                            codeAction ca.name caKind wsEdit)
+                            codeAction ca.name caKind wsEdit None)
                     else
                         [||]
 
@@ -951,7 +951,12 @@ type MarksmanServer(client: MarksmanClient) =
                         |> Array.map (fun ca ->
                             let wsEdit = CodeActions.createFile ca.newFileUri
                             let caKind = Some CodeActionKind.QuickFix
-                            codeAction ca.name caKind wsEdit)
+                            let cmd: Command = {
+                                Title = ca.name
+                                Command = "marksman.createFile"
+                                Arguments = Some [| JToken.FromObject(ca.newFileUri) |]
+                            }
+                            codeAction ca.name caKind wsEdit (Some cmd))
                     else
                         [||]
 
@@ -1019,6 +1024,21 @@ type MarksmanServer(client: MarksmanClient) =
             // because 'showing references' need to be handled by the client and it's a bit too much
             // hassle to do this for every client.
             AsyncLspResult.success (JToken.FromObject(0))
+        elif pars.Command = "marksman.createFile" then
+            // Create a missing file on disk. Client plugins may intercept this command
+            // to handle file creation client-side; this serves as a fallback.
+            match pars.Arguments with
+            | Some args when args.Length > 0 ->
+                let uri = args.[0].ToString().Trim('"')
+                let path = Uri(uri).LocalPath
+                let dir = Path.GetDirectoryName(path)
+                if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
+                    Directory.CreateDirectory(dir) |> ignore
+                if not (File.Exists(path)) then
+                    File.WriteAllText(path, "")
+                AsyncLspResult.success (JToken.FromObject(0))
+            | _ ->
+                AsyncLspResult.invalidParams "marksman.createFile requires a file URI argument"
         else
             AsyncLspResult.invalidParams $"Command {pars.Command} is unsupported"
 

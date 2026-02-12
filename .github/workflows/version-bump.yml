@@ -1,0 +1,40 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[version-bump]')"
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get current version
+        id: get_version
+        run: |
+          VERSION=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Marksman/Marksman.fsproj)
+          echo "current=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ steps.get_version.outputs.current }}"
+          NEW_PATCH=$((patch + 1))
+          NEW_VERSION="${major}.${minor}.${NEW_PATCH}"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update version in project file
+        run: |
+          sed -i "s/<VersionPrefix>${{ steps.get_version.outputs.current }}<\/VersionPrefix>/<VersionPrefix>${{ steps.bump.outputs.version }}<\/VersionPrefix>/" Marksman/Marksman.fsproj
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Marksman/Marksman.fsproj
+          git commit -m "Bump version to ${{ steps.bump.outputs.version }} [version-bump]"
+          git push
