@@ -8,7 +8,7 @@ open Marksman.Folder
 open Marksman.State
 open Marksman.Refs
 
-let findReferencesLens = "marksman.findReferences"
+let findReferencesLens = "mdita-marksman.findReferences"
 
 // fsharplint:disable-next-line
 type FindReferencesData = { Uri: DocumentUri; Position: Position; Locations: Location[] }

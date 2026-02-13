@@ -28,10 +28,10 @@ let basicHeaderLenses () =
 
     checkInlineSnapshot id lenses [
         "{ Title = \"1 reference\""
-        "  Command = \"marksman.findReferences\""
+        "  Command = \"mdita-marksman.findReferences\""
         "  Arguments = None }, (0,0)-(0,7)"
         "{ Title = \"2 references\""
-        "  Command = \"marksman.findReferences\""
+        "  Command = \"mdita-marksman.findReferences\""
         "  Arguments = None }, (1,0)-(1,6)"
     ]
 
@@ -88,6 +88,6 @@ let basicLinkDefLenses () =
 
     checkInlineSnapshot id lenses [
         "{ Title = \"2 references\""
-        "  Command = \"marksman.findReferences\""
+        "  Command = \"mdita-marksman.findReferences\""
         "  Arguments = None }, (4,0)-(4,11)"
     ]

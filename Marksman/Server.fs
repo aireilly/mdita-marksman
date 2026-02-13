@@ -170,7 +170,7 @@ module ServerUtil =
                     }
                 RenameProvider = renameOptions
                 CodeLensProvider = Some { ResolveProvider = None }
-                ExecuteCommandProvider = Some { commands = Some [| "marksman.createFile" |] }
+                ExecuteCommandProvider = Some { commands = Some [| "mdita-marksman.createFile" |] }
         }
 
 type MarksmanStatusParams = { state: string; docCount: int }
@@ -953,7 +953,7 @@ type MarksmanServer(client: MarksmanClient) =
                             let caKind = Some CodeActionKind.QuickFix
                             let cmd: Command = {
                                 Title = ca.name
-                                Command = "marksman.createFile"
+                                Command = "mdita-marksman.createFile"
                                 Arguments = Some [| JToken.FromObject(ca.newFileUri) |]
                             }
                             codeAction ca.name caKind wsEdit (Some cmd))
@@ -1024,7 +1024,7 @@ type MarksmanServer(client: MarksmanClient) =
             // because 'showing references' need to be handled by the client and it's a bit too much
             // hassle to do this for every client.
             AsyncLspResult.success (JToken.FromObject(0))
-        elif pars.Command = "marksman.createFile" then
+        elif pars.Command = "mdita-marksman.createFile" then
             // Create a missing file on disk. Client plugins may intercept this command
             // to handle file creation client-side; this serves as a fallback.
             match pars.Arguments with
