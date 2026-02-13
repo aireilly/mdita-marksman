@@ -35,6 +35,7 @@ module Doc =
     val rootPath: Doc -> RootPath
     val path: Doc -> AbsPath
     val pathFromRoot: Doc -> RelPath
+    val kind: Doc -> DocKind
     val text: Doc -> Text
     val version: Doc -> option<int>
     val structure: Doc -> Structure

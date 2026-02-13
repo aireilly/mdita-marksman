@@ -98,6 +98,7 @@ module Doc =
 
     let id { id = id } = id
     let text doc = doc.text
+    let kind doc = doc.kind
 
     let withText config newText (doc: Doc) =
         let newStructure, newBlockFeatures = Parser.parse config newText

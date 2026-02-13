@@ -122,8 +122,10 @@ let checkMditaCompliance (doc: Doc) : list<Entry> =
     if index.yamlFrontMatter.IsNone then
         entries <- MissingYamlFrontMatter :: entries
 
-    // Check for short description (first paragraph after H1)
-    if index.shortDescription.IsNone && (Index.titles index |> Array.isEmpty |> not) then
+    // Check for short description (first paragraph after H1) - only for topic files, not maps
+    if Doc.kind doc <> DocKind.Map
+       && index.shortDescription.IsNone
+       && (Index.titles index |> Array.isEmpty |> not) then
         entries <- MissingShortDescription :: entries
 
     // Check heading hierarchy - levels should not skip (e.g. H1 -> H4 without H2/H3)
