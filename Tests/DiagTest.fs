@@ -49,24 +49,27 @@ let nonBreakingWhitespace () =
 
 [<Fact>]
 let noDiagOnShortcutLinks () =
-    let doc = FakeDoc.Mk([| "# H1"; "## H2"; "[shortcut]"; "[[#h42]]" |])
-    let folder = FakeFolder.Mk([ doc ])
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
+    let doc = FakeDoc.Mk([| "# H1"; "## H2"; "[shortcut]"; "[[#h42]]" |], config = noMditaConfig)
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     Assert.Equal<string * string>([ "fake.md", "Link to non-existent heading 'h42'" ], diag)
 
 [<Fact>]
 let noDiagOnRealUrls () =
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
     let doc =
-        FakeDoc.Mk([| "# H1"; "## H2"; "[](www.bad.md)"; "[](https://www.good.md)" |])
+        FakeDoc.Mk([| "# H1"; "## H2"; "[](www.bad.md)"; "[](https://www.good.md)" |], config = noMditaConfig)
 
-    let folder = FakeFolder.Mk([ doc ])
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     Assert.Equal<string * string>([ "fake.md", "Link to non-existent document 'www.bad.md'" ], diag)
 
 [<Fact>]
 let noDiagOnNonMarkdownFiles () =
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
     let doc =
         FakeDoc.Mk(
             [|
@@ -75,10 +78,11 @@ let noDiagOnNonMarkdownFiles () =
                 "[](bad.md)"
                 "[](another%20bad.md)"
                 "[](good/folder)"
-            |]
+            |],
+            config = noMditaConfig
         )
 
-    let folder = FakeFolder.Mk([ doc ])
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     Assert.Equal<string * string>(
@@ -92,25 +96,28 @@ let noDiagOnNonMarkdownFiles () =
 
 [<Fact>]
 let crossFileDiagOnBrokenWikiLinks () =
-    let doc = FakeDoc.Mk([| "[[bad]]" |])
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
+    let doc = FakeDoc.Mk([| "[[bad]]" |], config = noMditaConfig)
 
-    let folder = FakeFolder.Mk([ doc ])
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     Assert.Equal<string * string>([ "fake.md", "Link to non-existent document 'bad'" ], diag)
 
 [<Fact>]
 let noCrossFileDiagOnSingleFileFolders () =
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
     let doc =
         FakeDoc.Mk(
             [|
                 "[](bad.md)" //
                 "[[another-bad]]"
                 "[bad-ref][bad-ref]"
-            |]
+            |],
+            config = noMditaConfig
         )
 
-    let folder = Folder.singleFile doc None
+    let folder = Folder.singleFile doc (Some noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     Assert.Equal<string * string>(
@@ -175,8 +182,9 @@ let mditaDiag_invalidHeadingHierarchy () =
 
 [<Fact>]
 let mditaDiag_noMditaDiagsWhenDisabled () =
-    let doc = FakeDoc.Mk([| "# Title"; "Some content" |])
-    let folder = FakeFolder.Mk([ doc ])
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
+    let doc = FakeDoc.Mk([| "# Title"; "Some content" |], config = noMditaConfig)
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     // Should not contain any MDITA diagnostics when MDITA mode is off
@@ -438,6 +446,7 @@ let schemaDiag_noSchemaNoSchemaDiags () =
 
 [<Fact>]
 let schemaDiag_noSchemaDiagsWhenMditaDisabled () =
+    let noMditaConfig = { Config.Default with coreMditaEnable = Some false }
     let doc =
         FakeDoc.Mk(
             [|
@@ -446,10 +455,11 @@ let schemaDiag_noSchemaDiagsWhenMditaDisabled () =
                 "---"
                 "# Install"
                 "Content without ordered list."
-            |]
+            |],
+            config = noMditaConfig
         )
 
-    let folder = FakeFolder.Mk([ doc ])
+    let folder = FakeFolder.Mk([ doc ], config = noMditaConfig)
     let diag = checkFolder folder |> diagToHuman
 
     let hasSchemaDiag =
@@ -457,3 +467,313 @@ let schemaDiag_noSchemaDiagsWhenMditaDisabled () =
         |> List.exists (fun (_, msg) -> msg.Contains("procedure steps"))
 
     Assert.False(hasSchemaDiag, "Schema diagnostics should only appear when MDITA is enabled")
+
+// --- Extended Profile feature detection tests ---
+
+[<Fact>]
+let extendedProfile_coreWithDefinitionList () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:core:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Term 1"
+                ":   Definition 1"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "'Definition lists' requires MDITA Extended Profile; document uses Core Profile"),
+        diag
+    )
+
+[<Fact>]
+let extendedProfile_coreWithNoExtendedFeatures () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:core:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Some plain content."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasExtendedDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("Extended Profile"))
+
+    Assert.False(hasExtendedDiag, "Should not warn about extended features when none are used")
+
+[<Fact>]
+let extendedProfile_extendedWithDefinitionList () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Term 1"
+                ":   Definition 1"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasExtendedDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("Extended Profile"))
+
+    Assert.False(hasExtendedDiag, "Should not warn about extended features in extended profile docs")
+
+[<Fact>]
+let extendedProfile_ditaSchemaWithDefinitionList () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:reference.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Term 1"
+                ":   Definition 1"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasExtendedDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("Extended Profile"))
+
+    Assert.False(hasExtendedDiag, "DITA schemas should not trigger profile gating")
+
+// --- Footnote validation tests ---
+
+[<Fact>]
+let footnote_refWithoutDef () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Text with a footnote[^1]."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Footnote reference '[^1]' has no matching definition"),
+        diag
+    )
+
+[<Fact>]
+let footnote_defWithoutRef () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "[^1]: Orphaned footnote definition"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Footnote definition '[^1]' is not referenced"),
+        diag
+    )
+
+[<Fact>]
+let footnote_matchedRefAndDef () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "Text with a footnote[^1]."
+                ""
+                "[^1]: This is the footnote"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasFootnoteDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("Footnote"))
+
+    Assert.False(hasFootnoteDiag, "Should not produce footnote diagnostics when ref and def match")
+
+// --- Admonition validation tests ---
+
+[<Fact>]
+let admonition_validType () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "!!! note"
+                "    This is a note."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasAdmonitionDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("admonition"))
+
+    Assert.False(hasAdmonitionDiag, "Should not warn about valid admonition type 'note'")
+
+[<Fact>]
+let admonition_invalidType () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "!!! invalid"
+                "    This is an invalid admonition."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Unknown admonition type 'invalid'; DITA supports: note, tip, warning, caution, danger, attention, important, notice, remember, restriction, trouble"),
+        diag
+    )
+
+[<Fact>]
+let admonition_warningType () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+                "---"
+                "# Title"
+                "Short description."
+                ""
+                "!!! warning"
+                "    This is a warning."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasAdmonitionDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("admonition"))
+
+    Assert.False(hasAdmonitionDiag, "Should not warn about valid admonition type 'warning'")

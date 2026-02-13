@@ -290,5 +290,5 @@ map_extensions = ["mditamap", "ditamap"]
 [<Fact>]
 let testParse_mditaDefaults () =
     let config = Config.Default
-    Assert.False(config.CoreMditaEnable())
+    Assert.True(config.CoreMditaEnable())
     Assert.Equal<string>([| "mditamap" |], config.CoreMditaMapExtensions())

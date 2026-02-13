@@ -36,8 +36,9 @@ incremental_references = false
 paranoid = false
 
 [core.mdita]
-# Enable MDITA (Markdown DITA) mode for enhanced DITA-compatible authoring
-enable = false
+# Enable MDITA (Markdown DITA) mode for enhanced DITA-compatible authoring.
+# Enabled by default. Set to false to use as a plain Markdown LSP.
+enable = true
 # File extensions recognized as MDITA map files
 map_extensions = ["mditamap"]
 

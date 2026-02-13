@@ -11,6 +11,8 @@ open Marksman.Names
 open Marksman.Text
 open Marksman.Structure
 
+type BoldSectionMarker = { text: string; range: Range }
+
 type BlockFeatures = {
     hasOrderedList: bool
     hasUnorderedList: bool
@@ -18,6 +20,14 @@ type BlockFeatures = {
     hasDefinitionList: bool
     orderedListRanges: list<Range>
     tableRanges: list<Range>
+    hasFootnoteRefs: bool
+    hasFootnoteDefs: bool
+    footnoteRefLabels: list<string * Range>
+    footnoteDefLabels: list<string * Range>
+    hasStrikethrough: bool
+    hasGenericAttributes: bool
+    admonitions: list<string * Range>
+    boldSectionMarkers: list<string * Range>
 }
 
 module BlockFeatures =
@@ -28,6 +38,14 @@ module BlockFeatures =
         hasDefinitionList = false
         orderedListRanges = []
         tableRanges = []
+        hasFootnoteRefs = false
+        hasFootnoteDefs = false
+        footnoteRefLabels = []
+        footnoteDefLabels = []
+        hasStrikethrough = false
+        hasGenericAttributes = false
+        admonitions = []
+        boldSectionMarkers = []
     }
 
 module Markdown =
@@ -183,6 +201,9 @@ module Markdown =
                 .UseMathematics()
                 .UseDefinitionLists()
                 .UsePipeTables()
+                .UseFootnotes()
+                .UseEmphasisExtras(Markdig.Extensions.EmphasisExtras.EmphasisExtraOptions.Strikethrough)
+                .UseGenericAttributes()
 
         pipelineBuilder.InlineParsers.Insert(0, MarkdigPatches.PatchedLinkInlineParser())
         pipelineBuilder.InlineParsers.Insert(0, WikiLinkParser())
@@ -414,6 +435,14 @@ module Markdown =
             let mutable hasDefinitionList = false
             let orderedListRanges = ResizeArray()
             let tableRanges = ResizeArray()
+            let mutable hasFootnoteRefs = false
+            let mutable hasFootnoteDefs = false
+            let footnoteRefLabels = ResizeArray()
+            let footnoteDefLabels = ResizeArray()
+            let mutable hasStrikethrough = false
+            let mutable hasGenericAttributes = false
+            let admonitions = ResizeArray()
+            let boldSectionMarkers = ResizeArray()
 
             for block in parsed do
                 match block with
@@ -430,6 +459,67 @@ module Markdown =
                     hasDefinitionList <- true
                 | _ -> ()
 
+            // Walk all descendants for inline features (strikethrough)
+            for desc in (parsed :> MarkdownObject).Descendants() do
+                match desc with
+                | :? Markdig.Syntax.Inlines.EmphasisInline as em ->
+                    if em.DelimiterChar = '~' && em.DelimiterCount = 2 then
+                        hasStrikethrough <- true
+                | _ -> ()
+
+            // Detect footnote references and definitions via text-level regex
+            // This is more reliable than Markdig AST because Markdig only creates
+            // FootnoteLink/FootnoteGroup when both ref and def are present.
+            let footnoteRefRegex = System.Text.RegularExpressions.Regex(@"\[\^([^\]]+)\](?!:)")
+            let footnoteDefRegex = System.Text.RegularExpressions.Regex(@"^\[\^([^\]]+)\]:", System.Text.RegularExpressions.RegexOptions.Multiline)
+
+            for m in footnoteRefRegex.Matches(text.content) do
+                hasFootnoteRefs <- true
+                let label = m.Groups.[1].Value
+                let startPos = text.lineMap.FindPosition(m.Index)
+                let endPos = text.lineMap.FindPosition(m.Index + m.Length - 1)
+                let range = { Start = startPos; End = { endPos with Character = endPos.Character + 1 } }
+                footnoteRefLabels.Add(label, range)
+
+            for m in footnoteDefRegex.Matches(text.content) do
+                hasFootnoteDefs <- true
+                let label = m.Groups.[1].Value
+                let startPos = text.lineMap.FindPosition(m.Index)
+                let endPos = text.lineMap.FindPosition(m.Index + m.Length - 1)
+                let range = { Start = startPos; End = { endPos with Character = endPos.Character + 1 } }
+                footnoteDefLabels.Add(label, range)
+
+            // Check blocks for generic attributes
+            for desc in (parsed :> MarkdownObject).Descendants() do
+                let attrs = Markdig.Renderers.Html.HtmlAttributesExtensions.TryGetAttributes(desc)
+                if attrs <> null then
+                    if attrs.Id <> null || (attrs.Classes <> null && attrs.Classes.Count > 0) || (attrs.Properties <> null && attrs.Properties.Count > 0) then
+                        hasGenericAttributes <- true
+
+            // Detect bold section markers: ParagraphBlock containing only a single bold EmphasisInline
+            for block in parsed do
+                match block with
+                | :? ParagraphBlock as p when p.Inline <> null ->
+                    let inlines = p.Inline |> Seq.toArray
+                    match inlines with
+                    | [| single |] ->
+                        match single with
+                        | :? Markdig.Syntax.Inlines.EmphasisInline as em when em.DelimiterCount = 2 && (em.DelimiterChar = '*' || em.DelimiterChar = '_') ->
+                            let markerText = text.content.Substring(p.Span.Start, p.Span.Length)
+                            boldSectionMarkers.Add(markerText, sourceSpanToRange text p.Span)
+                        | _ -> ()
+                    | _ -> ()
+                | _ -> ()
+
+            // Detect admonitions via text-level regex: ^!!!\s+(\w+)
+            let admonitionRegex = System.Text.RegularExpressions.Regex(@"^!!!\s+(\w+)", System.Text.RegularExpressions.RegexOptions.Multiline)
+            for m in admonitionRegex.Matches(text.content) do
+                let admonType = m.Groups.[1].Value
+                let startPos = text.lineMap.FindPosition(m.Index)
+                let endPos = text.lineMap.FindPosition(m.Index + m.Length - 1)
+                let range = { Start = startPos; End = { endPos with Character = endPos.Character + 1 } }
+                admonitions.Add(admonType, range)
+
             {
                 hasOrderedList = hasOrderedList
                 hasUnorderedList = hasUnorderedList
@@ -437,6 +527,14 @@ module Markdown =
                 hasDefinitionList = hasDefinitionList
                 orderedListRanges = orderedListRanges |> List.ofSeq
                 tableRanges = tableRanges |> List.ofSeq
+                hasFootnoteRefs = hasFootnoteRefs
+                hasFootnoteDefs = hasFootnoteDefs
+                footnoteRefLabels = footnoteRefLabels |> List.ofSeq
+                footnoteDefLabels = footnoteDefLabels |> List.ofSeq
+                hasStrikethrough = hasStrikethrough
+                hasGenericAttributes = hasGenericAttributes
+                admonitions = admonitions |> List.ofSeq
+                boldSectionMarkers = boldSectionMarkers |> List.ofSeq
             }
 
     let rec private sortElements (text: Text) (elements: array<Element>) : unit =

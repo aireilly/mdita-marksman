@@ -47,7 +47,7 @@ The following table summarizes the changes in MDITA Marksman compared to the ups
 | MDITA YAML front matter | Added | New `YamlMetadata` type with completion for MDITA fields: `author`, `source`, `publisher`, `permissions`, `audience`, `category`, `keyword`, `resourceid`. |
 | MDITA map files | Added | New `.mditamap` file format for defining topic hierarchies using nested Markdown lists of links. |
 | DITA fragment identifiers | Added | Support for DITA-style `topicID/sectionID` fragment syntax in links. |
-| MDITA diagnostics | Added | Warnings for missing YAML front matter, missing short description after H1, and skipped heading levels. Active when `core.mdita.enable = true`. |
+| MDITA diagnostics | Added | Warnings for missing YAML front matter, missing short description after H1, skipped heading levels, Extended Profile feature gating, footnote validation, and admonition type validation. Enabled by default; set `core.mdita.enable = false` to disable. |
 | MDITA keyref detection | Added | Shortcut reference links (`[key]`) produce warnings for unresolved keyrefs in MDITA mode. |
 | Short description tracking | Added | Index tracks the first paragraph after H1 as the document short description for MDITA compliance. |
 | Configuration file | Renamed | `.marksman.toml` renamed to `.mdita-marksman.toml`. User config directory changed to `~/.config/mdita-marksman/`. |
@@ -59,6 +59,49 @@ The following table summarizes the changes in MDITA Marksman compared to the ups
 | Diagnostic source label | Changed | Diagnostic `Source` field changed from `Marksman` to `MDITA Marksman`. |
 | .NET SDK | Changed | Target SDK updated to .NET 10.0 preview. |
 | CI/CD | Changed | Simplified to Linux-only workflows. Added `ci.yml` and `version-bump.yml`, removed `build.yml`. |
+
+## MDITA diagnostics
+
+MDITA mode is **enabled by default**. To disable it (plain Markdown LSP behavior), add to your `.mdita-marksman.toml`:
+
+```toml
+[core.mdita]
+enable = false
+```
+
+### Schema-aware validation
+
+Set `$schema` in your YAML front matter to enable schema-specific checks:
+
+| Schema | Diagnostic |
+|--------|-----------|
+| `urn:oasis:names:tc:dita:xsd:task.xsd` | Warns if no ordered list (procedure steps) is present |
+| `urn:oasis:names:tc:dita:xsd:concept.xsd` | Info if ordered list found (may belong in a task topic) |
+| `urn:oasis:names:tc:dita:xsd:reference.xsd` | Info if no table or definition list is present |
+| `urn:oasis:names:tc:dita:xsd:map.xsd` | Info if body content beyond navigation links is found |
+
+### Extended Profile gating
+
+Documents using the Core Profile (`urn:oasis:names:tc:mdita:core:xsd:topic.xsd`) will produce warnings when Extended-only features are used:
+
+- Definition lists
+- Footnotes (`[^label]`)
+- Strikethrough (`~~text~~`)
+- Generic attributes (`{#id .class}`)
+- Admonitions (`!!! type`)
+
+Documents using the Extended Profile or DITA schemas are not gated.
+
+### Footnote validation
+
+Across all profiles, the linter detects:
+
+- Footnote references (`[^label]`) with no matching definition
+- Footnote definitions (`[^label]: text`) that are never referenced
+
+### Admonition validation
+
+Admonition blocks (`!!! type`) are validated against DITA note types: `note`, `tip`, `warning`, `caution`, `danger`, `attention`, `important`, `notice`, `fastpath`, `remember`, `restriction`, `trouble`.
 
 ## Configuration
 

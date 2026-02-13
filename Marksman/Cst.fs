@@ -278,6 +278,18 @@ module DitaSchema =
         | "urn:oasis:names:tc:mdita:extended:rng:topic.rng" -> Some SchemaMditaExtendedTopic
         | other -> Some(SchemaUnknown other)
 
+    let isCore = function
+        | SchemaMditaCoreTopic -> true
+        | _ -> false
+
+    let isExtended = function
+        | SchemaMditaTopic | SchemaMditaExtendedTopic -> true
+        | _ -> false
+
+    let isDita = function
+        | SchemaTopic | SchemaConcept | SchemaTask | SchemaReference | SchemaMap -> true
+        | _ -> false
+
     let displayName =
         function
         | SchemaTopic -> "topic"

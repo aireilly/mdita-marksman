@@ -7,3 +7,4 @@ Marksman.sln.DotSettings.user
 .fake
 
 BenchmarkDotNet.Artifacts.claude/
+.claude/

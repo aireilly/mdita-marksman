@@ -26,6 +26,10 @@ type Entry =
     | ConceptHasProcedure of Lsp.Range
     | ReferenceMissingTable
     | MapHasBodyContent
+    | ExtendedFeatureInCoreProfile of featureName: string * Lsp.Range
+    | FootnoteRefWithoutDef of label: string * Lsp.Range
+    | FootnoteDefWithoutRef of label: string * Lsp.Range
+    | UnknownAdmonitionType of admonitionType: string * Lsp.Range
 
 let code: Entry -> string =
     function
@@ -40,6 +44,10 @@ let code: Entry -> string =
     | ConceptHasProcedure _ -> "9"
     | ReferenceMissingTable -> "10"
     | MapHasBodyContent -> "11"
+    | ExtendedFeatureInCoreProfile _ -> "12"
+    | FootnoteRefWithoutDef _ -> "13"
+    | FootnoteDefWithoutRef _ -> "14"
+    | UnknownAdmonitionType _ -> "15"
 
 let checkNonBreakingWhitespace (doc: Doc) =
     let nonBreakingWhitespace = "\u00a0"
@@ -172,6 +180,54 @@ let checkSchemaCompliance (doc: Doc) : list<Entry> =
 
         List.rev entries
 
+let validDitaNoteTypes =
+    set [ "note"; "tip"; "warning"; "caution"; "danger"; "attention"; "important"; "notice"; "fastpath"; "remember"; "restriction"; "trouble" ]
+
+let checkExtendedProfileCompliance (doc: Doc) : list<Entry> =
+    let index = Doc.index doc
+    let bf = index.blockFeatures
+    let mutable entries = []
+
+    let schema = index.yamlMetadata |> Option.bind (fun m -> m.schema)
+
+    // Profile gating: warn when Extended-only features appear in Core-profile docs
+    match schema with
+    | Some s when DitaSchema.isCore s ->
+        if bf.hasDefinitionList then
+            entries <- ExtendedFeatureInCoreProfile("Definition lists", Range.Mk(0, 0, 0, 0)) :: entries
+
+        if bf.hasFootnoteRefs || bf.hasFootnoteDefs then
+            entries <- ExtendedFeatureInCoreProfile("Footnotes", Range.Mk(0, 0, 0, 0)) :: entries
+
+        if bf.hasStrikethrough then
+            entries <- ExtendedFeatureInCoreProfile("Strikethrough", Range.Mk(0, 0, 0, 0)) :: entries
+
+        if bf.hasGenericAttributes then
+            entries <- ExtendedFeatureInCoreProfile("Generic attributes", Range.Mk(0, 0, 0, 0)) :: entries
+
+        if not (List.isEmpty bf.admonitions) then
+            entries <- ExtendedFeatureInCoreProfile("Admonitions", Range.Mk(0, 0, 0, 0)) :: entries
+    | _ -> ()
+
+    // Footnote validation: detect unmatched refs/defs (any profile)
+    let defLabels = bf.footnoteDefLabels |> List.map fst |> set
+    let refLabels = bf.footnoteRefLabels |> List.map fst |> set
+
+    for (label, range) in bf.footnoteRefLabels do
+        if not (Set.contains label defLabels) then
+            entries <- FootnoteRefWithoutDef(label, range) :: entries
+
+    for (label, range) in bf.footnoteDefLabels do
+        if not (Set.contains label refLabels) then
+            entries <- FootnoteDefWithoutRef(label, range) :: entries
+
+    // Admonition type validation (any profile)
+    for (admonType, range) in bf.admonitions do
+        if not (Set.contains (admonType.ToLowerInvariant()) validDitaNoteTypes) then
+            entries <- UnknownAdmonitionType(admonType, range) :: entries
+
+    List.rev entries
+
 let checkLinks (folder: Folder) (doc: Doc) : seq<Entry> =
     let links = Doc.index >> Index.links <| doc
     links |> Seq.collect (checkLink folder doc)
@@ -190,6 +246,7 @@ let checkFolder (folder: Folder) : seq<DocId * list<Entry>> =
                     if mditaEnabled then
                         yield! checkMditaCompliance doc
                         yield! checkSchemaCompliance doc
+                        yield! checkExtendedProfileCompliance doc
                 }
                 |> List.ofSeq
 
@@ -363,6 +420,50 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         CodeDescription = None
         Source = Some "MDITA Marksman"
         Message = "Map topic should primarily contain navigation links in lists"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | ExtendedFeatureInCoreProfile(featureName, range) -> {
+        Range = range
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = $"'{featureName}' requires MDITA Extended Profile; document uses Core Profile"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | FootnoteRefWithoutDef(label, range) -> {
+        Range = range
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = $"Footnote reference '[^{label}]' has no matching definition"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | FootnoteDefWithoutRef(label, range) -> {
+        Range = range
+        Severity = Some Lsp.DiagnosticSeverity.Information
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = $"Footnote definition '[^{label}]' is not referenced"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | UnknownAdmonitionType(admonType, range) -> {
+        Range = range
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = $"Unknown admonition type '{admonType}'; DITA supports: note, tip, warning, caution, danger, attention, important, notice, remember, restriction, trouble"
         RelatedInformation = None
         Tags = None
         Data = None
