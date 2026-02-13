@@ -121,3 +121,139 @@ let testParseNoDelimiters () =
     let meta = YamlMetadata.parse yaml
     Assert.Equal(Some "Someone", meta.author)
     Assert.Equal(Some [ "test" ], meta.keyword)
+
+[<Fact>]
+let testParseSchemaConceptXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:concept.xsd
+author: test
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaConcept, meta.schema)
+    Assert.Equal(Some "test", meta.author)
+
+[<Fact>]
+let testParseSchemaTaskXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:task.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaTask, meta.schema)
+
+[<Fact>]
+let testParseSchemaReferenceXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:reference.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaReference, meta.schema)
+
+[<Fact>]
+let testParseSchemaMapXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:map.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaMap, meta.schema)
+
+[<Fact>]
+let testParseSchemaTopicXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:topic.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaTopic, meta.schema)
+
+[<Fact>]
+let testParseSchemaMditaTopicXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:mdita:xsd:topic.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaMditaTopic, meta.schema)
+
+[<Fact>]
+let testParseSchemaMditaCoreTopicXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:mdita:core:xsd:topic.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaMditaCoreTopic, meta.schema)
+
+[<Fact>]
+let testParseSchemaMditaExtendedTopicXsd () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:mdita:extended:xsd:topic.xsd
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaMditaExtendedTopic, meta.schema)
+
+[<Fact>]
+let testParseSchemaConceptRng () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:rng:concept.rng
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaConcept, meta.schema)
+
+[<Fact>]
+let testParseSchemaTaskRng () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:rng:task.rng
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaTask, meta.schema)
+
+[<Fact>]
+let testParseSchemaUnknownValue () =
+    let yaml =
+        """---
+$schema: urn:example:custom:schema
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some(DitaSchema.SchemaUnknown "urn:example:custom:schema"), meta.schema)
+
+[<Fact>]
+let testParseSchemaNotInOtherMeta () =
+    let yaml =
+        """---
+$schema: urn:oasis:names:tc:dita:xsd:task.xsd
+custom: value
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(Some DitaSchema.SchemaTask, meta.schema)
+    // $schema should not appear in otherMeta
+    Assert.Equal(None, Map.tryFind "$schema" meta.otherMeta)
+    Assert.Equal(Some "value", Map.tryFind "custom" meta.otherMeta)
+
+[<Fact>]
+let testParseNoSchema () =
+    let yaml =
+        """---
+author: test
+---"""
+
+    let meta = YamlMetadata.parse yaml
+    Assert.Equal(None, meta.schema)

@@ -7,7 +7,7 @@ open Snapper
 open Marksman.Ast
 open Marksman.Structure
 
-let parseString content = Parser.parse Config.ParserSettings.Default (Text.mkText content)
+let parseString content = Parser.parse Config.ParserSettings.Default (Text.mkText content) |> fst
 
 let checkInlineSnapshot =
     Helpers.checkInlineSnapshot (fun (el: Element) -> el.CompactFormat())
@@ -75,7 +75,7 @@ And this?
 """
 
     let strukt =
-        Parser.parse { ParserSettings.Default with titleFromHeading = false } (Text.mkText doc)
+        Parser.parse { ParserSettings.Default with titleFromHeading = false } (Text.mkText doc) |> fst
 
     Helpers.checkInlineSnapshot _.ToString() strukt.Symbols [
         "Doc"
@@ -98,7 +98,7 @@ let testSymsWhenRepeatedHeadingsGlfm () =
 """
 
     let strukt =
-        Parser.parse { ParserSettings.Default with titleFromHeading = false } (Text.mkText doc)
+        Parser.parse { ParserSettings.Default with titleFromHeading = false } (Text.mkText doc) |> fst
 
     Helpers.checkInlineSnapshot _.ToString() strukt.Symbols [
         "Doc"
@@ -130,6 +130,7 @@ let testSymsWhenRepeatedHeadingsNoGlfm () =
                     glfmHeadingIds = false
             }
             (Text.mkText doc)
+        |> fst
 
     Helpers.checkInlineSnapshot _.ToString() strukt.Symbols [
         "Doc"
@@ -153,7 +154,7 @@ And this?
 """
 
     let strukt =
-        Parser.parse { ParserSettings.Default with titleFromHeading = true } (Text.mkText doc)
+        Parser.parse { ParserSettings.Default with titleFromHeading = true } (Text.mkText doc) |> fst
 
     Helpers.checkInlineSnapshot _.ToString() strukt.Symbols [
         "Doc"

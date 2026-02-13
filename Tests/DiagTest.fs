@@ -200,3 +200,260 @@ let mditaDiag_shortcutLinksWarnInMditaMode () =
         |> List.exists (fun (_, msg) -> msg.Contains("non-existent"))
 
     Assert.True(hasBrokenLink, "Expected broken link diagnostic for shortcut link in MDITA mode")
+
+[<Fact>]
+let schemaDiag_taskMissingProcedure () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:task.xsd"
+                "---"
+                "# Install the software"
+                "Some introductory text."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Task topic should contain procedure steps (ordered list)"),
+        diag
+    )
+
+[<Fact>]
+let schemaDiag_taskWithOrderedListNoDiag () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:task.xsd"
+                "---"
+                "# Install the software"
+                "Some introductory text."
+                ""
+                "1. First step"
+                "2. Second step"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasTaskDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("procedure steps"))
+
+    Assert.False(hasTaskDiag, "Should not warn about missing procedure when ordered list is present")
+
+[<Fact>]
+let schemaDiag_conceptWithOrderedList () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:concept.xsd"
+                "---"
+                "# About the software"
+                "Some description."
+                ""
+                "1. Step one"
+                "2. Step two"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Concept topic contains ordered list; consider using task schema if these are procedure steps"),
+        diag
+    )
+
+[<Fact>]
+let schemaDiag_conceptWithNoOrderedListNoDiag () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:concept.xsd"
+                "---"
+                "# About the software"
+                "Some description."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasConceptDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("ordered list"))
+
+    Assert.False(hasConceptDiag, "Should not warn about ordered list when none is present")
+
+[<Fact>]
+let schemaDiag_referenceMissingTable () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:reference.xsd"
+                "---"
+                "# API Reference"
+                "Some reference content without tables."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Reference topic typically contains tables or definition lists"),
+        diag
+    )
+
+[<Fact>]
+let schemaDiag_referenceWithTableNoDiag () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:reference.xsd"
+                "---"
+                "# API Reference"
+                "Some reference content."
+                ""
+                "| Header 1 | Header 2 |"
+                "| --------- | --------- |"
+                "| Cell 1 | Cell 2 |"
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasRefDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("tables or definition lists"))
+
+    Assert.False(hasRefDiag, "Should not warn about missing table when table is present")
+
+[<Fact>]
+let schemaDiag_unrecognizedSchema () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:example:custom:schema"
+                "---"
+                "# Some Topic"
+                "Content here."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    Assert.Contains(
+        ("fake.md", "Unrecognized $schema: 'urn:example:custom:schema'"),
+        diag
+    )
+
+[<Fact>]
+let schemaDiag_noSchemaNoSchemaDiags () =
+    let mditaConfig = {
+        Config.Default with
+            coreMditaEnable = Some true
+    }
+
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "author: test"
+                "---"
+                "# Some Topic"
+                "Content here."
+            |],
+            config = mditaConfig
+        )
+
+    let folder = FakeFolder.Mk([ doc ], config = mditaConfig)
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasSchemaDiag =
+        diag
+        |> List.exists (fun (_, msg) ->
+            msg.Contains("$schema")
+            || msg.Contains("procedure steps")
+            || msg.Contains("ordered list")
+            || msg.Contains("tables or definition lists")
+            || msg.Contains("navigation links"))
+
+    Assert.False(hasSchemaDiag, "Should not produce schema diagnostics when no $schema is present")
+
+[<Fact>]
+let schemaDiag_noSchemaDiagsWhenMditaDisabled () =
+    let doc =
+        FakeDoc.Mk(
+            [|
+                "---"
+                "$schema: urn:oasis:names:tc:dita:xsd:task.xsd"
+                "---"
+                "# Install"
+                "Content without ordered list."
+            |]
+        )
+
+    let folder = FakeFolder.Mk([ doc ])
+    let diag = checkFolder folder |> diagToHuman
+
+    let hasSchemaDiag =
+        diag
+        |> List.exists (fun (_, msg) -> msg.Contains("procedure steps"))
+
+    Assert.False(hasSchemaDiag, "Schema diagnostics should only appear when MDITA is enabled")

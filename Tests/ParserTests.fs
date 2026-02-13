@@ -23,6 +23,7 @@ let checkInlineSnapshot = checkInlineSnapshot Element.fmt
 
 let scrapeString content =
     parse Config.ParserSettings.Default (Text.mkText content)
+    |> fst
     |> Structure.concreteElements
 
 [<StoreSnapshotsPerClass>]

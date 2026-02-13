@@ -12,6 +12,8 @@
             <Output TaskParameter="ConsoleOutput" PropertyName="VersionString"/>
         </Exec>
         <PropertyGroup>
+            <!-- Strip leading 'v' from git describe output (e.g. v0.0.1 -> 0.0.1) -->
+            <VersionString Condition="$(VersionString.StartsWith('v'))">$(VersionString.Substring(1))</VersionString>
             <!-- If git describe returns a valid semver tag, use it; otherwise fall back to VersionPrefix -->
             <Version Condition="$(VersionString.Contains('.'))">$(VersionString)</Version>
             <Version Condition="!$(VersionString.Contains('.'))">$(VersionPrefix)</Version>

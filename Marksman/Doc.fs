@@ -74,8 +74,8 @@ module Doc =
 
     let mk parserSettings (id: DocId) version text =
         try
-            let structure = Parser.parse parserSettings text
-            let index = Index.ofCst (Structure.concreteElements structure) structure.ShortDescription
+            let structure, blockFeatures = Parser.parse parserSettings text
+            let index = Index.ofCst (Structure.concreteElements structure) structure.ShortDescription blockFeatures
 
             let docPath = RootedRelPath.toAbs id.Path |> AbsPath.toSystem
 
@@ -100,8 +100,8 @@ module Doc =
     let text doc = doc.text
 
     let withText config newText (doc: Doc) =
-        let newStructure = Parser.parse config newText
-        let newIndex = Index.ofCst (Structure.concreteElements newStructure) newStructure.ShortDescription
+        let newStructure, newBlockFeatures = Parser.parse config newText
+        let newIndex = Index.ofCst (Structure.concreteElements newStructure) newStructure.ShortDescription newBlockFeatures
 
         {
             doc with

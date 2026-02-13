@@ -246,6 +246,50 @@ module MdLinkDef =
     }
 
 
+type DitaSchema =
+    | SchemaTopic
+    | SchemaConcept
+    | SchemaTask
+    | SchemaReference
+    | SchemaMap
+    | SchemaMditaTopic
+    | SchemaMditaCoreTopic
+    | SchemaMditaExtendedTopic
+    | SchemaUnknown of string
+
+module DitaSchema =
+    let tryParse (s: string) : option<DitaSchema> =
+        match s with
+        | "urn:oasis:names:tc:dita:xsd:topic.xsd"
+        | "urn:oasis:names:tc:dita:rng:topic.rng" -> Some SchemaTopic
+        | "urn:oasis:names:tc:dita:xsd:concept.xsd"
+        | "urn:oasis:names:tc:dita:rng:concept.rng" -> Some SchemaConcept
+        | "urn:oasis:names:tc:dita:xsd:task.xsd"
+        | "urn:oasis:names:tc:dita:rng:task.rng" -> Some SchemaTask
+        | "urn:oasis:names:tc:dita:xsd:reference.xsd"
+        | "urn:oasis:names:tc:dita:rng:reference.rng" -> Some SchemaReference
+        | "urn:oasis:names:tc:dita:xsd:map.xsd"
+        | "urn:oasis:names:tc:dita:rng:map.rng" -> Some SchemaMap
+        | "urn:oasis:names:tc:mdita:xsd:topic.xsd"
+        | "urn:oasis:names:tc:mdita:rng:topic.rng" -> Some SchemaMditaTopic
+        | "urn:oasis:names:tc:mdita:core:xsd:topic.xsd"
+        | "urn:oasis:names:tc:mdita:core:rng:topic.rng" -> Some SchemaMditaCoreTopic
+        | "urn:oasis:names:tc:mdita:extended:xsd:topic.xsd"
+        | "urn:oasis:names:tc:mdita:extended:rng:topic.rng" -> Some SchemaMditaExtendedTopic
+        | other -> Some(SchemaUnknown other)
+
+    let displayName =
+        function
+        | SchemaTopic -> "topic"
+        | SchemaConcept -> "concept"
+        | SchemaTask -> "task"
+        | SchemaReference -> "reference"
+        | SchemaMap -> "map"
+        | SchemaMditaTopic -> "mdita-topic"
+        | SchemaMditaCoreTopic -> "mdita-core-topic"
+        | SchemaMditaExtendedTopic -> "mdita-extended-topic"
+        | SchemaUnknown s -> $"unknown ({s})"
+
 type YamlMetadata = {
     author: option<string>
     source: option<string>
@@ -255,6 +299,7 @@ type YamlMetadata = {
     category: option<string>
     keyword: option<list<string>>
     resourceid: option<string>
+    schema: option<DitaSchema>
     otherMeta: Map<string, string>
 }
 
@@ -268,6 +313,7 @@ module YamlMetadata =
         category = None
         keyword = None
         resourceid = None
+        schema = None
         otherMeta = Map.empty
     }
 
@@ -342,11 +388,15 @@ module YamlMetadata =
                 "category"
                 "keyword"
                 "resourceid"
+                "$schema"
             ]
 
         let otherMeta =
             kvPairs
             |> Map.filter (fun k _ -> not (Set.contains k knownKeys))
+
+        let schema =
+            get "$schema" |> Option.bind DitaSchema.tryParse
 
         {
             author = get "author"
@@ -357,6 +407,7 @@ module YamlMetadata =
             category = get "category"
             keyword = getList "keyword"
             resourceid = get "resourceid"
+            schema = schema
             otherMeta = otherMeta
         }
 

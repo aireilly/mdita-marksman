@@ -4,6 +4,7 @@ open Ionide.LanguageServerProtocol.Types
 
 open Marksman.Cst
 open Marksman.Misc
+open Marksman.Parser
 
 type Dictionary<'K, 'V> = System.Collections.Generic.Dictionary<'K, 'V>
 
@@ -18,10 +19,11 @@ type Index = {
     yamlFrontMatter: option<TextNode>
     yamlMetadata: option<YamlMetadata>
     shortDescription: option<TextNode>
+    blockFeatures: BlockFeatures
 }
 
 module Index =
-    let ofCst (cels: Cst.Element[]) (shortDesc: option<TextNode>) : Index =
+    let ofCst (cels: Cst.Element[]) (shortDesc: option<TextNode>) (blockFeatures: BlockFeatures) : Index =
         let titles = ResizeArray()
         let headingsBySlug = Dictionary<Slug, ResizeArray<Node<Heading>>>()
         let wikiLinks = ResizeArray()
@@ -76,6 +78,7 @@ module Index =
             yamlFrontMatter = yaml
             yamlMetadata = yamlMetadata
             shortDescription = shortDesc
+            blockFeatures = blockFeatures
         }
 
     let titles index = index.titles

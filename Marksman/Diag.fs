@@ -21,6 +21,11 @@ type Entry =
     | MissingYamlFrontMatter
     | MissingShortDescription
     | InvalidHeadingHierarchy of Lsp.Range * currentLevel: int * expectedMaxLevel: int
+    | UnrecognizedSchema of schemaValue: string
+    | TaskMissingProcedure
+    | ConceptHasProcedure of Lsp.Range
+    | ReferenceMissingTable
+    | MapHasBodyContent
 
 let code: Entry -> string =
     function
@@ -30,6 +35,11 @@ let code: Entry -> string =
     | MissingYamlFrontMatter -> "4"
     | MissingShortDescription -> "5"
     | InvalidHeadingHierarchy _ -> "6"
+    | UnrecognizedSchema _ -> "7"
+    | TaskMissingProcedure -> "8"
+    | ConceptHasProcedure _ -> "9"
+    | ReferenceMissingTable -> "10"
+    | MapHasBodyContent -> "11"
 
 let checkNonBreakingWhitespace (doc: Doc) =
     let nonBreakingWhitespace = "\u00a0"
@@ -124,6 +134,44 @@ let checkMditaCompliance (doc: Doc) : list<Entry> =
 
     List.rev entries
 
+let checkSchemaCompliance (doc: Doc) : list<Entry> =
+    let index = Doc.index doc
+    let bf = index.blockFeatures
+
+    match index.yamlMetadata |> Option.bind (fun m -> m.schema) with
+    | None -> []
+    | Some schema ->
+        let mutable entries = []
+
+        match schema with
+        | Cst.SchemaUnknown value ->
+            entries <- UnrecognizedSchema value :: entries
+        | Cst.SchemaTask ->
+            if not bf.hasOrderedList then
+                entries <- TaskMissingProcedure :: entries
+        | Cst.SchemaConcept ->
+            match bf.orderedListRanges with
+            | range :: _ ->
+                entries <- ConceptHasProcedure range :: entries
+            | [] -> ()
+        | Cst.SchemaReference ->
+            if not bf.hasTable && not bf.hasDefinitionList then
+                entries <- ReferenceMissingTable :: entries
+        | Cst.SchemaMap ->
+            // Map topics should primarily contain navigation links in lists.
+            // If there are headings beyond the title, flag body content.
+            let headings = Index.headings index
+            let nonTitleHeadings = headings |> Array.filter (fun h -> not h.data.isTitle)
+
+            if nonTitleHeadings.Length > 0 then
+                entries <- MapHasBodyContent :: entries
+        | Cst.SchemaTopic
+        | Cst.SchemaMditaTopic
+        | Cst.SchemaMditaCoreTopic
+        | Cst.SchemaMditaExtendedTopic -> ()
+
+        List.rev entries
+
 let checkLinks (folder: Folder) (doc: Doc) : seq<Entry> =
     let links = Doc.index >> Index.links <| doc
     links |> Seq.collect (checkLink folder doc)
@@ -141,6 +189,7 @@ let checkFolder (folder: Folder) : seq<DocId * list<Entry>> =
 
                     if mditaEnabled then
                         yield! checkMditaCompliance doc
+                        yield! checkSchemaCompliance doc
                 }
                 |> List.ofSeq
 
@@ -258,6 +307,62 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         Source = Some "MDITA Marksman"
         Message =
             $"MDITA: Heading level {currentLevel} skips levels. Expected at most level {expectedMaxLevel}."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | UnrecognizedSchema schemaValue -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = $"Unrecognized $schema: '{schemaValue}'"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | TaskMissingProcedure -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Warning
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = "Task topic should contain procedure steps (ordered list)"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | ConceptHasProcedure procRange -> {
+        Range = procRange
+        Severity = Some Lsp.DiagnosticSeverity.Information
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message =
+            "Concept topic contains ordered list; consider using task schema if these are procedure steps"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | ReferenceMissingTable -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Information
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = "Reference topic typically contains tables or definition lists"
+        RelatedInformation = None
+        Tags = None
+        Data = None
+      }
+    | MapHasBodyContent -> {
+        Range = Range.Mk(0, 0, 0, 0)
+        Severity = Some Lsp.DiagnosticSeverity.Information
+        Code = Some(code diag)
+        CodeDescription = None
+        Source = Some "MDITA Marksman"
+        Message = "Map topic should primarily contain navigation links in lists"
         RelatedInformation = None
         Tags = None
         Data = None

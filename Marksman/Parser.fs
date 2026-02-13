@@ -11,6 +11,25 @@ open Marksman.Names
 open Marksman.Text
 open Marksman.Structure
 
+type BlockFeatures = {
+    hasOrderedList: bool
+    hasUnorderedList: bool
+    hasTable: bool
+    hasDefinitionList: bool
+    orderedListRanges: list<Range>
+    tableRanges: list<Range>
+}
+
+module BlockFeatures =
+    let empty = {
+        hasOrderedList = false
+        hasUnorderedList = false
+        hasTable = false
+        hasDefinitionList = false
+        orderedListRanges = []
+        tableRanges = []
+    }
+
 module Markdown =
     open Markdig
     open Markdig.Syntax.Inlines
@@ -163,6 +182,7 @@ module Markdown =
                 .UseYamlFrontMatter()
                 .UseMathematics()
                 .UseDefinitionLists()
+                .UsePipeTables()
 
         pipelineBuilder.InlineParsers.Insert(0, MarkdigPatches.PatchedLinkInlineParser())
         pipelineBuilder.InlineParsers.Insert(0, WikiLinkParser())
@@ -383,6 +403,42 @@ module Markdown =
 
         result
 
+    let extractBlockFeatures (text: Text) : BlockFeatures =
+        if String.IsNullOrEmpty text.content then
+            BlockFeatures.empty
+        else
+            let parsed = Markdig.Markdown.Parse(text.content, markdigPipeline)
+            let mutable hasOrderedList = false
+            let mutable hasUnorderedList = false
+            let mutable hasTable = false
+            let mutable hasDefinitionList = false
+            let orderedListRanges = ResizeArray()
+            let tableRanges = ResizeArray()
+
+            for block in parsed do
+                match block with
+                | :? ListBlock as lb ->
+                    if lb.IsOrdered then
+                        hasOrderedList <- true
+                        orderedListRanges.Add(sourceSpanToRange text lb.Span)
+                    else
+                        hasUnorderedList <- true
+                | :? Markdig.Extensions.Tables.Table as t ->
+                    hasTable <- true
+                    tableRanges.Add(sourceSpanToRange text t.Span)
+                | :? Markdig.Extensions.DefinitionLists.DefinitionList ->
+                    hasDefinitionList <- true
+                | _ -> ()
+
+            {
+                hasOrderedList = hasOrderedList
+                hasUnorderedList = hasUnorderedList
+                hasTable = hasTable
+                hasDefinitionList = hasDefinitionList
+                orderedListRanges = orderedListRanges |> List.ofSeq
+                tableRanges = tableRanges |> List.ofSeq
+            }
+
     let rec private sortElements (text: Text) (elements: array<Element>) : unit =
         let elemOffsets el =
             let range = (Element.range el)
@@ -467,12 +523,13 @@ module Markdown =
 
         { elements = elements; childMap = childMap }
 
-let parse (parserSettings: ParserSettings) (text: Text) : Structure =
+let parse (parserSettings: ParserSettings) (text: Text) : Structure * BlockFeatures =
     if String.IsNullOrEmpty text.content then
         let cst: Cst.Cst = { elements = [||]; childMap = Map.empty }
-        Structure.ofCst parserSettings cst None
+        Structure.ofCst parserSettings cst None, BlockFeatures.empty
     else
         let flatElements = Markdown.scrapeText parserSettings text
         let cst = Markdown.buildCst text flatElements
         let shortDesc = Markdown.extractShortDescription text
-        Structure.ofCst parserSettings cst shortDesc
+        let blockFeatures = Markdown.extractBlockFeatures text
+        Structure.ofCst parserSettings cst shortDesc, blockFeatures
