@@ -1,40 +1,68 @@
-name: Version Bump
+name: Release and Version Bump
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
 
 jobs:
-  bump-version:
+  release:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[version-bump]')"
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Get current version
-        id: get_version
+      - name: Extract version from tag
+        id: tag
         run: |
-          VERSION=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Marksman/Marksman.fsproj)
-          echo "current=$VERSION" >> "$GITHUB_OUTPUT"
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Bump patch version
-        id: bump
+      - name: Generate release notes
+        id: notes
         run: |
-          IFS='.' read -r major minor patch <<< "${{ steps.get_version.outputs.current }}"
-          NEW_PATCH=$((patch + 1))
-          NEW_VERSION="${major}.${minor}.${NEW_PATCH}"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          PREV_TAG=$(git tag --sort=-v:refname | grep '^v' | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" --no-merges | grep -v '\[version-bump\]')
+          else
+            NOTES=$(git log --pretty=format:"- %s" --no-merges | grep -v '\[version-bump\]')
+          fi
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Update version in project file
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sed -i "s/<VersionPrefix>${{ steps.get_version.outputs.current }}<\/VersionPrefix>/<VersionPrefix>${{ steps.bump.outputs.version }}<\/VersionPrefix>/" Marksman/Marksman.fsproj
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "${{ steps.notes.outputs.notes }}" \
+            --latest
 
-      - name: Commit and push
+  bump-version:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Bump patch version for next development cycle
         run: |
+          CURRENT=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Marksman/Marksman.fsproj)
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+          NEW_VERSION="${major}.${minor}.$((patch + 1))"
+          sed -i "s/<VersionPrefix>${CURRENT}<\/VersionPrefix>/<VersionPrefix>${NEW_VERSION}<\/VersionPrefix>/" Marksman/Marksman.fsproj
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Marksman/Marksman.fsproj
-          git commit -m "Bump version to ${{ steps.bump.outputs.version }} [version-bump]"
+          git commit -m "Bump version to ${NEW_VERSION} [version-bump]"
           git push
