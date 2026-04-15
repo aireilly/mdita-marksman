@@ -1,30 +1,30 @@
 ---
 author: Aidan Reilly
-keyword: [installation, setup, build]
+keyword: [installation, setup]
 ---
 
 # Installation
 
-MDITA Marksman is built from source on Linux.
+Pre-built self-contained binaries are available from [GitHub Releases](https://github.com/aireilly/mdita-marksman/releases). The current version is **1.0.7**.
 
-## Prerequisites
+1. Download the binary for your platform from the [latest release](https://github.com/aireilly/mdita-marksman/releases/latest):
 
-Install the [.NET SDK](https://dotnet.microsoft.com/en-us/download) (version 10.0 or later).
+   | Platform | Binary |
+   |----------|--------|
+   | Linux x64 | `mdita-marksman-linux-x64` |
+   | Linux arm64 | `mdita-marksman-linux-arm64` |
+   | macOS Apple Silicon | `mdita-marksman-macos-arm64` |
+   | macOS Intel | `mdita-marksman-macos-x64` |
+   | Windows x64 | `mdita-marksman-win-x64.exe` |
 
-On Fedora:
-
-```bash
-sudo dnf install dotnet-sdk-10.0
-```
-
-## Build from source
-
-1. Clone the repository:
+2. Make the binary executable (Linux/macOS):
    ```bash
-   git clone <repo-url> mdita-marksman
+   chmod +x mdita-marksman-linux-x64
    ```
-2. Inside the `mdita-marksman` folder run:
+
+3. Copy it to a directory on your `PATH` (Linux):
    ```bash
-   make install
+   cp mdita-marksman-linux-x64 $HOME/.local/bin/mdita-marksman
    ```
-3. The binary will be installed under `$HOME/.local/bin` (make sure this folder is in your `PATH`).
+
+No runtime dependencies are required -- the binary is self-contained.
