@@ -651,7 +651,12 @@ type MarksmanServer(client: MarksmanClient) =
                     let parserSettings = ParserSettings.OfConfig(config)
 
                     if isMarkdownFile parserSettings.mdFileExt (AbsPath.toSystem path.data) then
-                        let singletonRoot = UriWith.mkRoot par.TextDocument.Uri
+                        let parentDir =
+                            AbsPath.toSystem path.data
+                            |> Path.GetDirectoryName
+                            |> AbsPath.ofSystem
+
+                        let singletonRoot = UriWith.mkRoot (AbsPath.toUri parentDir)
 
                         logger.trace (
                             Log.setMessage "Opening document in single-file mode"
@@ -945,17 +950,19 @@ type MarksmanServer(client: MarksmanClient) =
                         [||]
 
                 let createMissingFileAction =
-                    if config.CaCreateMissingFileEnable() then
+                    if config.CaCreateMissingFileEnable() && not (Folder.isSingleFile folder) then
                         CodeActions.createMissingFile opts.Range opts.Context doc folder
                         |> Option.toArray
                         |> Array.map (fun ca ->
                             let wsEdit = CodeActions.createFile ca.newFileUri
                             let caKind = Some CodeActionKind.QuickFix
+
                             let cmd: Command = {
                                 Title = ca.name
                                 Command = "mdita-marksman.createFile"
                                 Arguments = Some [| JToken.FromObject(ca.newFileUri) |]
                             }
+
                             codeAction ca.name caKind wsEdit (Some cmd))
                     else
                         [||]
@@ -1032,13 +1039,15 @@ type MarksmanServer(client: MarksmanClient) =
                 let uri = args.[0].ToString().Trim('"')
                 let path = Uri(uri).LocalPath
                 let dir = Path.GetDirectoryName(path)
+
                 if not (String.IsNullOrEmpty(dir)) && not (Directory.Exists(dir)) then
                     Directory.CreateDirectory(dir) |> ignore
+
                 if not (File.Exists(path)) then
                     File.WriteAllText(path, "")
+
                 AsyncLspResult.success (JToken.FromObject(0))
-            | _ ->
-                AsyncLspResult.invalidParams "marksman.createFile requires a file URI argument"
+            | _ -> AsyncLspResult.invalidParams "marksman.createFile requires a file URI argument"
         else
             AsyncLspResult.invalidParams $"Command {pars.Command} is unsupported"
 

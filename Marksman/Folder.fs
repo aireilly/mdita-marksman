@@ -397,7 +397,8 @@ module Folder =
 
     let private tryLoadFolderConfig (folderId: FolderId) : option<Config> =
         let folderConfigPath =
-            RootPath.appendFile folderId.data ".mdita-marksman.toml" |> AbsPath.toSystem
+            RootPath.appendFile folderId.data ".mdita-marksman.toml"
+            |> AbsPath.toSystem
 
         if File.Exists(folderConfigPath) then
             logger.trace (
